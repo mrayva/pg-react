@@ -19,6 +19,7 @@ pub fn is_compatible_extension_version(version: &str) -> bool {
         || version == "0.45.0"
         || version == "0.46.0"
         || version == "0.46.1"
+        || version == "0.46.2"
         || version == "1.0.0"
     {
         return true;
@@ -219,6 +220,7 @@ mod tests {
         assert!(is_compatible_extension_version("0.45.0"));
         assert!(is_compatible_extension_version("0.46.0"));
         assert!(is_compatible_extension_version("0.46.1"));
+        assert!(is_compatible_extension_version("0.46.2"));
         assert!(!is_compatible_extension_version("0.46.2"));
         assert!(is_compatible_extension_version("1.0.0-rc.1"));
         assert!(is_compatible_extension_version("1.0.0-rc.2"));
