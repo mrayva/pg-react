@@ -90,8 +90,8 @@ pub extern "C-unwind" fn _PG_init() {
     );
     GucRegistry::define_int_guc(
         c"pg_react.batch_size",
-        c"Maximum managed maintenance batch size.",
-        c"Window maintenance uses this bound; managed job claims retain the public 100-item maximum.",
+        c"Maximum managed maintenance and per-cycle claim batch size.",
+        c"Claim batch size must not exceed the operational max_claims setting.",
         &BATCH_SIZE,
         1,
         1_000,

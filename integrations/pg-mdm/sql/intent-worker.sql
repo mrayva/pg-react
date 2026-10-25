@@ -127,7 +127,21 @@ SELECT request.work_ref,
        case_row.publication_revision AS current_publication_revision,
        CASE WHEN hold.reason_code IS NULL THEN 'NONE' ELSE 'HELD' END AS remediation_state,
        hold.reason_code AS remediation_reason_code,
-       hold.held_at AS remediation_at
+       hold.held_at AS remediation_at,
+       CASE WHEN request.request_body ->> 'action' = 'SET_DUE_AT'
+            THEN (request.request_body #>> '{arguments,due_at}')::timestamptz
+       END AS requested_due_at,
+       case_row.due_at AS current_due_at,
+       CASE WHEN request.request_body ->> 'action' = 'ESCALATE'
+            THEN (request.request_body #>> '{arguments,level}')::integer
+       END AS requested_escalation_level,
+       CASE WHEN request.request_body ->> 'action' = 'ESCALATE'
+                 AND receipt.outcome = 'APPLIED_CONTROL'
+            THEN (receipt.control ->> 'escalation_level')::integer
+       END AS applied_escalation_level,
+       case_row.escalation_level AS current_escalation_level,
+       case_row.manual_assignment_protected AS current_manual_assignment_protected,
+       case_row.pending_stewardship AS current_pending_stewardship
 FROM pgreact_mdm.intent_requests AS request
 JOIN pgreact_mdm.policy_intent_bindings AS binding USING (binding_id)
 LEFT JOIN LATERAL (
@@ -157,7 +171,7 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) AS hold ON true;
 COMMENT ON VIEW pgreact_mdm.delivery_inspection_v1 IS
-    'Versioned read-only delivery, MDM receipt, policy, case, and remediation inspection.';
+    'Versioned read-only delivery, MDM receipt, policy, deadline, escalation, case, and remediation inspection.';
 REVOKE ALL ON pgreact_mdm.delivery_inspection_v1 FROM PUBLIC;
 GRANT SELECT ON pgreact_mdm.delivery_inspection_v1 TO PUBLIC;
 

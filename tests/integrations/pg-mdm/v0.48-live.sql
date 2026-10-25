@@ -472,6 +472,23 @@ BEGIN
         conflict_work_ref, queue_binding.policy_revision, conflict_case.case_key,
         1, conflict_case.action_revision, conflict_candidate.consequence_identity,
         conflict_candidate.escalation_level, (conflict_context).episode_id);
+    SELECT * INTO STRICT conflict_inspection
+    FROM pgreact_mdm.delivery_inspection_v1
+    WHERE work_ref = conflict_work_ref;
+    IF conflict_inspection.delivery_outcome IS DISTINCT FROM 'PENDING'
+       OR conflict_inspection.attempted_at IS NOT NULL
+       OR conflict_inspection.mdm_receipt_id IS NOT NULL
+       OR conflict_inspection.current_due_at IS DISTINCT FROM conflict_case.due_at
+       OR conflict_inspection.requested_due_at IS NOT NULL
+       OR conflict_inspection.requested_escalation_level IS NOT NULL
+       OR conflict_inspection.applied_escalation_level IS NOT NULL
+       OR conflict_inspection.current_escalation_level IS DISTINCT FROM conflict_case.escalation_level
+       OR conflict_inspection.current_manual_assignment_protected IS DISTINCT FROM conflict_case.manual_assignment_protected
+       OR conflict_inspection.current_pending_stewardship IS DISTINCT FROM conflict_case.pending_stewardship
+       OR conflict_inspection.remediation_state IS DISTINCT FROM 'NONE' THEN
+        RAISE EXCEPTION 'pending delivery diagnostics differ from the exact case/request state: %',
+            to_jsonb(conflict_inspection);
+    END IF;
     conflict_context := ROW(
         (conflict_context).activation_id, (conflict_context).episode_id,
         (conflict_context).rule_id, (conflict_context).rule_version_id,
@@ -544,6 +561,36 @@ BEGIN
        OR conflict_attempt.reason_code IS DISTINCT FROM 'REQUEST_KEY_BODY_MISMATCH'
        OR conflict_inspection.remediation_state IS DISTINCT FROM 'HELD'
        OR conflict_inspection.remediation_reason_code IS DISTINCT FROM 'REQUEST_KEY_BODY_MISMATCH'
+       OR queue_inspection.current_due_at IS DISTINCT FROM queue_case.due_at
+       OR due_inspection.current_due_at IS DISTINCT FROM due_case.due_at
+       OR escalation_inspection.current_due_at IS DISTINCT FROM escalation_case.due_at
+       OR conflict_inspection.current_due_at IS DISTINCT FROM conflict_case.due_at
+       OR queue_inspection.requested_due_at IS NOT NULL
+       OR due_inspection.requested_due_at IS DISTINCT FROM
+          (due_attempt.request_body #>> '{arguments,due_at}')::timestamptz
+       OR escalation_inspection.requested_due_at IS NOT NULL
+       OR conflict_inspection.requested_due_at IS NOT NULL
+       OR queue_inspection.requested_escalation_level IS NOT NULL
+       OR due_inspection.requested_escalation_level IS NOT NULL
+       OR escalation_inspection.requested_escalation_level IS DISTINCT FROM
+          (escalation_attempt.request_body #>> '{arguments,level}')::integer
+       OR conflict_inspection.requested_escalation_level IS NOT NULL
+       OR queue_inspection.applied_escalation_level IS NOT NULL
+       OR due_inspection.applied_escalation_level IS NOT NULL
+       OR escalation_inspection.applied_escalation_level IS NOT NULL
+       OR conflict_inspection.applied_escalation_level IS NOT NULL
+       OR queue_inspection.current_escalation_level IS DISTINCT FROM queue_case.escalation_level
+       OR due_inspection.current_escalation_level IS DISTINCT FROM due_case.escalation_level
+       OR escalation_inspection.current_escalation_level IS DISTINCT FROM escalation_case.escalation_level
+       OR conflict_inspection.current_escalation_level IS DISTINCT FROM conflict_case.escalation_level
+       OR queue_inspection.current_manual_assignment_protected IS DISTINCT FROM queue_case.manual_assignment_protected
+       OR due_inspection.current_manual_assignment_protected IS DISTINCT FROM due_case.manual_assignment_protected
+       OR escalation_inspection.current_manual_assignment_protected IS DISTINCT FROM escalation_case.manual_assignment_protected
+       OR conflict_inspection.current_manual_assignment_protected IS DISTINCT FROM conflict_case.manual_assignment_protected
+       OR queue_inspection.current_pending_stewardship IS DISTINCT FROM queue_case.pending_stewardship
+       OR due_inspection.current_pending_stewardship IS DISTINCT FROM due_case.pending_stewardship
+       OR escalation_inspection.current_pending_stewardship IS DISTINCT FROM escalation_case.pending_stewardship
+       OR conflict_inspection.current_pending_stewardship IS DISTINCT FROM conflict_case.pending_stewardship
        OR NOT EXISTS (
            SELECT 1 FROM pgreact_mdm.intent_requests AS request
            WHERE request.binding_id = queue_binding.binding_id

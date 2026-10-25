@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "runtime_gate": "TECHNICAL_SOURCE_ONLY",
+  "scope": "Passing technical-source runtime proof at 39efb26 only. Direct MDM-source qualification subsequently failed; see ../v0.49-mdm-source-stop/manifest.json. No issue 11 completion or release qualification.",
+  "ci": {
+    "01080": {
+      "run_id": 39375263662,
+      "url": "https://github.com/trickle-labs/pg-react/actions/runs/39375263662",
+      "head": "39efb26e5a1ff76bbbb645c3781a77eaefd848fb",
+      "conclusion": "success",
+      "artifact_id": 12243164380,
+      "artifact_zip_sha256": "052b1317fb2a31621485f78630b9649f7e882938c532153663eb8d8f516eb072",
+      "image_id": "sha256:3b6fbb3ebe09e178018413924b540543cd0f28f58f3c14f2f24e7bf6f102d7cc",
+      "installed_profile": {
+        "settings": {
+          "pg_trickle.enabled": "off",
+          "pg_trickle.cdc_mode": "trigger",
+          "transaction_isolation": "read committed",
+          "shared_preload_libraries": "pg_trickle,pg_react",
+          "default_transaction_isolation": "read committed",
+          "pg_trickle.differential_max_change_ratio": "1"
+        },
+        "extensions": {
+          "plpgsql": "1.0",
+          "pg_react": "0.46.1",
+          "pg_trickle": "0.108.0"
+        },
+        "postgresql": "PostgreSQL 18.3 (Debian 18.3-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "compatibility": {
+          "qualified": true,
+          "capabilities": {
+            "output_delta_consumer": {
+              "raw": {
+                "details": {
+                  "phase": "v0.104_conformance",
+                  "status": "stable",
+                  "enabled": true,
+                  "graph_dependency": "external_graph_refresh",
+                  "qualification_api": "qualify_output_delta_recovery",
+                  "consumer_recovery_version": 1,
+                  "public_resnapshot_request": true,
+                  "public_consumer_validation": true,
+                  "typed_delta_encoding_version": 1
+                },
+                "enabled": true,
+                "capability": "output_delta_consumer",
+                "major_version": 1,
+                "minor_version": 1
+              },
+              "major": 1,
+              "minor": 1,
+              "status": "stable",
+              "enabled": true
+            },
+            "external_graph_refresh": {
+              "raw": {
+                "details": {
+                  "phase": "v0.104_conformance",
+                  "status": "stable",
+                  "enabled": true,
+                  "refresh_api": "refresh_graph_strict",
+                  "source_boundary": "local_trigger_or_wal",
+                  "max_graph_members": 1024,
+                  "unavailable_reason": null,
+                  "differential_features": [
+                    "stable_row_identity_encoder_v2",
+                    "custom_table_srf_out_columns",
+                    "lateral_immutable_composite_function"
+                  ]
+                },
+                "enabled": true,
+                "capability": "external_graph_refresh",
+                "major_version": 1,
+                "minor_version": 2
+              },
+              "major": 1,
+              "minor": 2,
+              "status": "stable",
+              "enabled": true
+            }
+          },
+          "cdc_expected": "trigger",
+          "delta_v1_used": false,
+          "graph_v1_used": false,
+          "coordination_mode": "LEGACY_EXPLICIT",
+          "extension_version": "0.108.0",
+          "package_qualified": true,
+          "scheduler_expected": "off",
+          "capabilities_qualified": true
+        }
+      },
+      "checks": [
+        {
+          "name": "compatibility",
+          "result": "passed",
+          "seconds": 0.09746517599995741
+        },
+        {
+          "name": "fresh-adjacent-upgrade-compatibility",
+          "result": "passed"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "ci-01080-candidate-image.SHA256SUMS.gz",
+          "sha256": "a0308d01db6cc867b5f7cfdf86f3044bf62dfb29442767fb462ba254c1f24aea"
+        },
+        {
+          "path": "ci-01080-candidate-image.txt.gz",
+          "sha256": "396b126cbe7b1329e119865675c74256dd12db8e67587bd7877d4aafe3e41ef7"
+        },
+        {
+          "path": "ci-01080-compatibility.log.gz",
+          "sha256": "499f3545a8bf0132b8985a552eaa033c96388f4263d5a8ba6398d049215552d0"
+        },
+        {
+          "path": "ci-01080-evidence-manifest.json.gz",
+          "sha256": "ffb19abdec57a28aaab2829330df1573edbe5b08f5b38b0f2d382c4f411ed55c"
+        },
+        {
+          "path": "ci-01080-observations.json.gz",
+          "sha256": "51d4396f74d43640fd6c885773fac5247a42c1bd59c71caacbcb68005bf225b7"
+        }
+      ]
+    },
+    "01083": {
+      "run_id": 39375268080,
+      "url": "https://github.com/trickle-labs/pg-react/actions/runs/39375268080",
+      "head": "39efb26e5a1ff76bbbb645c3781a77eaefd848fb",
+      "conclusion": "success",
+      "artifact_id": 12243970452,
+      "artifact_zip_sha256": "50914beac447d0d603fdb06fcf40f5c4a5e5919b13d813b0d9d257ef274caafe",
+      "image_id": "sha256:0ee6a82deae4e148802e84564c368d96854d6c907e57ba955ddce27eb685d52c",
+      "installed_profile": {
+        "settings": {
+          "pg_trickle.enabled": "off",
+          "pg_trickle.cdc_mode": "trigger",
+          "transaction_isolation": "read committed",
+          "shared_preload_libraries": "pg_trickle,pg_react",
+          "default_transaction_isolation": "read committed",
+          "pg_trickle.differential_max_change_ratio": "1"
+        },
+        "extensions": {
+          "plpgsql": "1.0",
+          "pg_react": "0.46.1",
+          "pg_trickle": "0.108.3"
+        },
+        "postgresql": "PostgreSQL 18.4 (Debian 18.4-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "compatibility": {
+          "qualified": true,
+          "capabilities": {
+            "output_delta_consumer": {
+              "raw": {
+                "details": {
+                  "phase": "v0.104_conformance",
+                  "status": "stable",
+                  "enabled": true,
+                  "graph_dependency": "external_graph_refresh",
+                  "qualification_api": "qualify_output_delta_recovery",
+                  "consumer_recovery_version": 1,
+                  "public_resnapshot_request": true,
+                  "public_consumer_validation": true,
+                  "typed_delta_encoding_version": 1
+                },
+                "enabled": true,
+                "capability": "output_delta_consumer",
+                "major_version": 1,
+                "minor_version": 1
+              },
+              "major": 1,
+              "minor": 1,
+              "status": "stable",
+              "enabled": true
+            },
+            "external_graph_refresh": {
+              "raw": {
+                "details": {
+                  "phase": "v0.104_conformance",
+                  "status": "stable",
+                  "enabled": true,
+                  "refresh_api": "refresh_graph_strict",
+                  "source_boundary": "local_trigger_or_wal",
+                  "max_graph_members": 1024,
+                  "unavailable_reason": null,
+                  "differential_features": [
+                    "stable_row_identity_encoder_v3",
+                    "custom_table_srf_out_columns",
+                    "lateral_immutable_composite_function"
+                  ]
+                },
+                "enabled": true,
+                "capability": "external_graph_refresh",
+                "major_version": 1,
+                "minor_version": 2
+              },
+              "major": 1,
+              "minor": 2,
+              "status": "stable",
+              "enabled": true
+            }
+          },
+          "cdc_expected": "trigger",
+          "delta_v1_used": false,
+          "graph_v1_used": false,
+          "coordination_mode": "LEGACY_EXPLICIT",
+          "extension_version": "0.108.3",
+          "package_qualified": true,
+          "scheduler_expected": "off",
+          "capabilities_qualified": true
+        }
+      },
+      "checks": [
+        {
+          "name": "compatibility",
+          "result": "passed",
+          "seconds": 0.11856291599997348
+        },
+        {
+          "name": "fresh-adjacent-upgrade-compatibility",
+          "result": "passed"
+        },
+        {
+          "name": "refresh-permission",
+          "result": "passed",
+          "seconds": 0.18290527900001052
+        },
+        {
+          "name": "mdm-bootstrap",
+          "result": "passed",
+          "seconds": 192.1979821839999
+        },
+        {
+          "name": "mdm-policy-fixtures",
+          "result": "passed",
+          "seconds": 7.2224283420000575
+        },
+        {
+          "name": "idle-seed",
+          "result": "passed",
+          "seconds": 0.09107290999997986
+        },
+        {
+          "name": "v0.47",
+          "result": "passed",
+          "seconds": 0.278973034000046
+        },
+        {
+          "name": "v0.47-typed",
+          "result": "passed",
+          "seconds": 0.11356861799993112
+        },
+        {
+          "name": "v0.48-codec",
+          "result": "passed",
+          "seconds": 0.12584525199997643
+        },
+        {
+          "name": "v0.47-live-setup",
+          "result": "passed",
+          "seconds": 1.0763446679999333
+        },
+        {
+          "name": "v0.47-live",
+          "result": "passed",
+          "seconds": 0.5381704119999995
+        },
+        {
+          "name": "v0.48-codec",
+          "result": "passed",
+          "seconds": 0.12231404499993914
+        },
+        {
+          "name": "v0.48-live",
+          "result": "passed",
+          "seconds": 6.308008217999941
+        },
+        {
+          "name": "v0.48-security",
+          "result": "passed",
+          "seconds": 0.19788334899999427
+        },
+        {
+          "name": "missing-mdm-admission",
+          "result": "passed"
+        },
+        {
+          "name": "sample-boundaries",
+          "result": "passed",
+          "seconds": 0.2693447589999778
+        },
+        {
+          "name": "idle-setup",
+          "result": "passed",
+          "seconds": 0.4512567700001
+        },
+        {
+          "name": "callback-error-role-reset",
+          "result": "passed"
+        },
+        {
+          "name": "worker-missing-set-membership",
+          "result": "passed"
+        },
+        {
+          "name": "future-idle-mdm-receipt",
+          "result": "passed"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "ci-01083-compatibility.log.gz",
+          "sha256": "162050a359b34e8c0f539538721260fe95b7213ea6ad364bb746fb170042ebd3"
+        },
+        {
+          "path": "ci-01083-images.json.gz",
+          "sha256": "81863b0490d0910ca41882ff627116d7d0e0e1ea7531f93f1fec09f10a967fe4"
+        },
+        {
+          "path": "ci-01083-mdm-build.log.gz",
+          "sha256": "f57a9de577bd7d4ff46c20535359df2872b609c1af5c71ea943f0e23baca4422"
+        },
+        {
+          "path": "ci-01083-observations.json.gz",
+          "sha256": "85f75f8cf8a635e64d3628a07df622277e6bdd816e541054c235e5439485ca8e"
+        },
+        {
+          "path": "ci-01083-react-build.log.gz",
+          "sha256": "582b6140efeda460b254d1326b4c871c43b48d26e89f395fecaa8853bded1917"
+        },
+        {
+          "path": "ci-01083-refresh-permission.log.gz",
+          "sha256": "a2662c58c0ed1550d791064dd4ce6e04fdc28c185518f3a8ef31f8c0c37a849c"
+        }
+      ],
+      "deadline_to_receipt_seconds": 0.822299,
+      "runtime_extensions": [
+        {
+          "name": "pg_mdm",
+          "version": "0.14.1"
+        },
+        {
+          "name": "pg_react",
+          "version": "0.46.1"
+        },
+        {
+          "name": "pg_trickle",
+          "version": "0.108.3"
+        },
+        {
+          "name": "plpgsql",
+          "version": "1.0"
+        }
+      ],
+      "fixtures_and_libraries_sha256": [
+        "a989f42898d91932f7b5168398d7386f04bc3f9bdd1ff6a40ffe6bd2a76a1d7e  /tests/e2e.sql",
+        "a7abbf8b9673f160dc1a5e0b635ace993d05e5a18d5df1af757bcfa9159a7fb1  /tests/e2e_policy.sql",
+        "a52660fa33fb2abe4606104fd1e1d3e817e5951763bdd0b90f2666ca4fc92340  /usr/lib/postgresql/18/lib/pg_react.so",
+        "0cda4cc177e0e4f85caa0f93d07ef944e77f10b287c6b5d1be346b45ec0d501b  /usr/lib/postgresql/18/lib/pg_mdm.so",
+        "edb7345ed03dca50066737d421b4643b26f870435a964fb20379c23a77983ff9  /usr/lib/postgresql/18/lib/pg_trickle.so"
+      ],
+      "managed_settings": {
+        "pg_react.databases": "s1_idle",
+        "pg_react.batch_size": "32",
+        "max_worker_processes": "8",
+        "pg_react.worker_role": "mdm_s1_runtime",
+        "pg_react.max_pending_jobs": "10000",
+        "pg_react.poll_interval_ms": "1000"
+      }
+    }
+  }
+}

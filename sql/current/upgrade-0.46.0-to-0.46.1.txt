@@ -1,3 +1,4 @@
 # 0.46.0 -> 0.46.1: preserve state/roles; fix shared claim name resolution.
 sql/current/claim.sql
 sql/current/worker-grants.sql
+sql/current/pgtrickle.sql

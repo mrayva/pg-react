@@ -26,8 +26,11 @@ run_setup() {
         exit 1
     fi
 }
-run_setup --command \
-    "CREATE EXTENSION pg_trickle VERSION '0.108.0'; CREATE EXTENSION pg_react VERSION '0.46.0';"
+case ${2:-legacy} in
+    legacy) run_setup --command "CREATE EXTENSION pg_trickle VERSION '0.108.0'; CREATE EXTENSION pg_react VERSION '0.46.0';" ;;
+    current) run_setup --command "CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react;" ;;
+    *) echo 'expected legacy or current admission profile' >&2; exit 2 ;;
+esac
 run_setup --command \
     "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'mdm_helper_owner') THEN CREATE ROLE mdm_helper_owner NOLOGIN; END IF; END \$\$;"
 run_setup --file="$test_dir/../../../integrations/pg-mdm/sql/policy-inputs.sql"

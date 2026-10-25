@@ -1,0 +1,3 @@
+FROM pgreact:issue11-joint-audit
+COPY mdm/sql/archive/pg_mdm--0.1.0.sql mdm/sql/archive/pg_mdm--0.2.0.sql /usr/share/postgresql/18/extension/
+LABEL pg_trickle.source_archive_sha256=b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da

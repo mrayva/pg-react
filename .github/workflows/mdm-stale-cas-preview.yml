@@ -1,0 +1,108 @@
+name: MDM stale-runtime repair preview (not pinned release)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mdm_stale_cas_preview:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: trickle-labs/pg-mdm
+          ref: 6ad23ca11cb956f264e93e46a6351d32ea4a1ca8
+          path: .producer/mdm
+      - name: Assert exact MDM preview source identity
+        run: |
+          set -euo pipefail
+          mkdir -p preview-evidence
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8"
+          git -C .producer/mdm rev-parse HEAD > preview-evidence/mdm-source-revision.txt
+          git rev-parse HEAD > preview-evidence/react-source-revision.txt
+          sha256sum .producer/mdm/src/api/policy_intent.rs \
+            .producer/mdm/tests/e2e_policy.sql \
+            tests/integrations/pg-mdm/time/resume-stale-version.sql \
+            tests/integrations/pg-mdm/time/audit.py \
+            > preview-evidence/source-sha256.txt
+      - name: Build exact candidate MDM preview and pinned pg-trickle
+        run: |
+          set -euo pipefail
+          docker build -f .producer/mdm/tests/Dockerfile.e2e \
+            --build-arg PG_MDM_SOURCE_REVISION=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
+            --label mdm.preview_source_revision=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
+            --label pg_trickle.source_revision=d8bb8eb5d45c5c9982e173e88914037433a1ee05 \
+            --label pg_trickle.source_archive_sha256=b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da \
+            -t pgreact:mdm-stale-cas-preview .producer/mdm \
+            > preview-evidence/mdm-build.log 2>&1
+      - name: Build React against the exact candidate MDM library
+        run: |
+          set -euo pipefail
+          docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
+            --build-arg PG_MDM_IMAGE=pgreact:mdm-stale-cas-preview \
+            -t pgreact:stale-cas-preview . \
+            > preview-evidence/react-build.log 2>&1
+      - name: Run full qualified integration audit on provisional artifact
+        run: |
+          set -euo pipefail
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:stale-cas-preview preview-evidence/runtime
+          python3 - <<'PY'
+          import json
+          p = 'preview-evidence/runtime/observations.json'
+          o = json.load(open(p, encoding='utf-8'))
+          checks = {entry['name'] for entry in o['checks'] if entry['result'] == 'passed'}
+          required = {
+              'future-idle-mdm-receipt',
+              'authorized-pause-barrier',
+              'paused-binding-restart-no-replay',
+              'authorized-pause-resume-immutable-receipts',
+              'post-resume-managed-quiescence',
+              'stale-operator-runtime-version',
+          }
+          assert required <= checks, {'missing': sorted(required - checks),
+                                      'failure': o.get('failure')}
+          assert o['stale_operator_runtime_version']['exact']
+          assert o['stale_operator_runtime_version']['complete_state_unchanged']
+          print('PASS: repaired exact-source MDM preview; no release-pin adoption')
+          PY
+      - name: Retain exact image and executable identities
+        if: always()
+        run: |
+          set -euo pipefail
+          docker image inspect pgreact:mdm-stale-cas-preview pgreact:stale-cas-preview \
+            > preview-evidence/images.json
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          : > preview-evidence/executable-sha256.txt
+          for profile in mdm-stale-cas-preview stale-cas-preview; do
+            image="pgreact:$profile"
+            container="$(docker create "$image")"
+            for module in pg_mdm pg_trickle; do
+              docker cp "$container:/usr/lib/postgresql/18/lib/$module.so" "$tmp/$profile-$module.so"
+              sha256sum "$tmp/$profile-$module.so" \
+                | sed "s#  $tmp/#  $profile/#" >> preview-evidence/executable-sha256.txt
+            done
+            if [ "$profile" = stale-cas-preview ]; then
+              docker cp "$container:/usr/lib/postgresql/18/lib/pg_react.so" "$tmp/$profile-pg_react.so"
+              sha256sum "$tmp/$profile-pg_react.so" \
+                | sed "s#  $tmp/#  $profile/#" >> preview-evidence/executable-sha256.txt
+            fi
+            docker rm "$container" >/dev/null
+          done
+          for module in pg_mdm pg_trickle; do
+            cmp "$tmp/mdm-stale-cas-preview-$module.so" "$tmp/stale-cas-preview-$module.so"
+          done
+          (cd .producer/mdm && git archive --format=tar HEAD) \
+            | sha256sum > preview-evidence/mdm-source-archive-sha256.txt
+          sha256sum preview-evidence/*.txt preview-evidence/images.json \
+            > preview-evidence/identity-manifest-sha256.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mdm-stale-cas-preview-evidence
+          path: preview-evidence/

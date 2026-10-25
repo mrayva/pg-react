@@ -25,7 +25,11 @@ CREATE TABLE s1_audit.source (
     case_key bigint PRIMARY KEY,
     deadline timestamptz NOT NULL
 );
-CREATE VIEW s1_audit.candidate AS SELECT case_key, deadline FROM s1_audit.source;
+CREATE VIEW s1_audit.candidate AS
+SELECT policy_case.case_key, policy_case.due_at AS deadline
+FROM pgreact_mdm.intent_deployer_policy_cases_v1 AS policy_case
+-- shortcut: the pinned producer drops USING while expanding nested views; use ON until that path qualifies.
+JOIN s1_audit.source AS selected_case ON selected_case.case_key = policy_case.case_key;
 GRANT USAGE, CREATE ON SCHEMA s1_audit TO mdm_s1_runner;
 GRANT SELECT ON s1_audit.source, s1_audit.candidate TO mdm_s1_runner;
 ALTER VIEW s1_audit.candidate OWNER TO mdm_s1_runner;
@@ -58,6 +62,39 @@ RESET ROLE;
 RESET SESSION AUTHORIZATION;
 SELECT pgreact_mdm.sync_intent_case_identities();
 
+-- The optional two-case outage qualification prepares a second *real* MDM
+-- occurrence through the same authorized human control API, before the
+-- deadline rule is registered.  No direct MDM case-table writes are allowed.
+\if :multi
+SELECT c.case_key, c.action_revision,
+       COALESCE(c.assigned_queue::text, '') AS assigned_queue,
+       c.manual_assignment_protected,
+       (:'deadline'::timestamptz + interval '1 second')::text AS deadline
+FROM mdm_steward.policy_cases_v1 AS c
+WHERE c.entity_name = 'policy_qualification' AND c.status = 'open'
+  AND c.case_key <> :case_key AND c.opened_at IS NOT NULL
+  AND NOT c.pending_stewardship AND c.escalation_level = 0
+  AND 'ESCALATE' = ANY(c.permitted_actions)
+  AND NOT EXISTS (
+      SELECT 1 FROM mdm_steward.policy_receipts_v1 AS receipt
+      WHERE receipt.case_key = c.case_key AND receipt.outcome = 'APPLIED_CONTROL'
+        AND receipt.request_body ->> 'action' = 'ESCALATE'
+        AND receipt.request_body -> 'arguments' ->> 'level' = '2')
+ORDER BY c.case_key LIMIT 1
+\gset sibling_
+SET SESSION AUTHORIZATION mdm_legacy_login;
+SET ROLE mdm_legacy_administrator;
+SELECT mdm_steward.set_case_controls(
+    :sibling_case_key, NULLIF(:'sibling_assigned_queue', '')::name,
+    :'sibling_deadline'::timestamptz, 1,
+    :'sibling_manual_assignment_protected'::boolean,
+    :sibling_action_revision, 'Two-case downtime fixture: authorized setup');
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+INSERT INTO s1_audit.source (case_key, deadline)
+VALUES (:sibling_case_key, :'sibling_deadline'::timestamptz);
+\endif
+
 CREATE TABLE s1_audit.callback_failure_rules (rule_id uuid PRIMARY KEY);
 GRANT SELECT ON s1_audit.callback_failure_rules TO mdm_s1_runner;
 CREATE FUNCTION s1_audit.deliver(
@@ -84,6 +121,19 @@ ALTER FUNCTION s1_audit.deliver(pgreact.activation_context, s1_audit.candidate)
 REVOKE CREATE ON SCHEMA s1_audit FROM mdm_s1_runner;
 REVOKE ALL ON FUNCTION s1_audit.deliver(
     pgreact.activation_context, s1_audit.candidate) FROM PUBLIC;
+CREATE FUNCTION s1_audit.registration_state() RETURNS jsonb
+LANGUAGE sql STABLE AS $state$
+    SELECT jsonb_build_object(
+        'cases',(SELECT jsonb_agg(to_jsonb(c) ORDER BY case_key) FROM mdm_steward.policy_cases_v1 c),
+        'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) FROM mdm_steward.policy_receipts_v1 r),
+        'business_source',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.policy_qualification_source s),
+        'technical_source',(SELECT jsonb_agg(to_jsonb(s) ORDER BY case_key) FROM s1_audit.source s),
+        'rules',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text),'[]') FROM pgreact.rules r),
+        'work',(SELECT COALESCE(jsonb_agg(to_jsonb(w) ORDER BY to_jsonb(w)::text),'[]') FROM pgreact.work w),
+        'attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY to_jsonb(a)::text),'[]') FROM pgreact.attempts a),
+        'source_definition',pg_get_viewdef('s1_audit.candidate'::regclass,true))
+$state$;
+CREATE TABLE s1_audit.before_registration AS SELECT s1_audit.registration_state() AS vector;
 SET SESSION AUTHORIZATION mdm_s1_runner;
 SELECT pgreact_api.author_deadline_rule(
     's1-future-idle', 's1_audit.candidate'::regclass,
