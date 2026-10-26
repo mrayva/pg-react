@@ -167,6 +167,7 @@ LEFT JOIN LATERAL (
       AND saved_hold.policy_revision = request.policy_revision
       AND saved_hold.action = request.request_body ->> 'action'
       AND saved_hold.expected_action_revision = request.action_revision
+      AND (saved_hold.reason_code <> 'BINDING_PAUSED' OR attempt.outcome = 'BINDING_PAUSED')
     ORDER BY saved_hold.held_at DESC
     LIMIT 1
 ) AS hold ON true;
@@ -770,7 +771,8 @@ BEGIN
             WHERE hold.binding_id = binding.binding_id
               AND hold.case_key = policy_case.case_key
               AND hold.policy_revision = binding.policy_revision
-              AND hold.expected_action_revision = policy_case.action_revision) THEN
+              AND hold.expected_action_revision = policy_case.action_revision
+              AND hold.reason_code <> 'BINDING_PAUSED') THEN
             RETURN;
         END IF;
         INSERT INTO pgreact_mdm.intent_requests(
