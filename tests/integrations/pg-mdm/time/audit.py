@@ -18,8 +18,9 @@ def main():
     outage_mode = sys.argv[3:] == ["--outage"]
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery):
-        raise ValueError("only --maintenance, --compatibility, --outage, --multi-outage or --pending-recovery is supported after IMAGE OUTPUT")
+    autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence):
+        raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parents[4]
@@ -752,6 +753,10 @@ def main():
                                            "--format", "{{.Id}}").strip()
         observations["image_labels"] = json.loads(command(
             "docker", "image", "inspect", image, "--format", "{{json .Config.Labels}}"))
+        observations["image_architecture"] = command(
+            "docker", "image", "inspect", image, "--format", "{{.Architecture}}").strip()
+        observations["host_architecture_cpus_memory"] = command(
+            "docker", "info", "--format", "{{.Architecture}} {{.NCPU}} {{.MemTotal}}").strip()
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
                 image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_react",
@@ -804,6 +809,16 @@ def main():
         print("PASS: fresh/adjacent-upgrade compatibility and callable privileges", flush=True)
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
+            return
+        if autonomous_recurrence:
+            from autonomous_recurrence import qualify
+            observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
+                "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
+                "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()
+            fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
+            fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
+                    ("-v", "multi=false", "-v", "VERBOSITY=verbose"))
+            qualify(sql, command, fixture, container, observations)
             return
         command("docker", "exec", container, "createdb", "-U", "postgres", "s1_cycle_bound")
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_cycle_bound")

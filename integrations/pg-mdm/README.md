@@ -92,7 +92,10 @@ processing episodes. Run `pgreact_mdm.execute_intent_episode` with the runner
 session set to `pgreact_mdm_worker`; refresh rules as the runner because pg-react
 checks rule ownership. The adapter stores a stable bigint identity for each
 entity and case pair because MDM case keys are entity-scoped. Run the sync
-before refresh whenever MDM may have new cases. After a restore, the entity
+before manual refresh whenever MDM may have new cases. The ordinary managed
+worker now runs this same authorized sync before its refresh/time evaluation,
+so a new MDM occurrence needs no manual enrollment. Sync does not activate a
+binding or grant the worker access to producer-private catalogs. After a restore, the entity
 execution role must call
 `pgreact_mdm.reconcile_intent_binding(binding_id, 0)` before the runner syncs
 identities and refreshes rules. Use `pgreact_mdm.pause_intent_binding` to pause

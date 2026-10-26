@@ -44,6 +44,12 @@ jobs:
           docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
             --build-arg PG_MDM_IMAGE=pgreact:mdm-pinned \
             -t pgreact:producer-compatibility . > producer-evidence/react-build.log 2>&1
+      - name: Qualify autonomous MDM recurrence and cold restart
+        run: |
+          set -euo pipefail
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/autonomous-recurrence --autonomous-recurrence
+          python3 -c 'import json; o=json.load(open("producer-evidence/autonomous-recurrence/observations.json")); assert o["entry_decision"]=="FOCUSED_AUTONOMOUS_RECURRENCE_QUALIFIED", o.get("failure"); e=o["autonomous_recurrence"]; assert e["exact"] and e["old_receipts_unchanged"] and e["no_replay_across_cycles_and_restart"]'
       - name: Qualify admission, refresh permissions and actual idle delivery
         run: |
           python3 tests/integrations/pg-mdm/time/audit.py pgreact:producer-compatibility producer-evidence/runtime
