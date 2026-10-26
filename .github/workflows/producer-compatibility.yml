@@ -46,6 +46,7 @@ jobs:
         run: |
           python3 tests/integrations/pg-mdm/time/audit.py pgreact:producer-compatibility producer-evidence/runtime
           python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"future-idle-mdm-receipt","stale-operator-runtime-version"} <= passed, {"passed":passed,"failure":o.get("failure")}; assert o["stale_operator_runtime_version"]["exact"] and o["stale_operator_runtime_version"]["complete_state_unchanged"]'
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"managed-cycle-admission-bound","active-template-clone-guard","physical-restore-guard","physical-restore-reconcile-replay"} <= passed, o.get("failure"); assert o["active_template_clone"]["unchanged_before_activation"] and o["physical_recovery"]["unchanged_before_and_after_explicit_reconciliation"]'
       - name: Qualify real downtime crossing an undelivered deadline
         run: |
           set -euo pipefail

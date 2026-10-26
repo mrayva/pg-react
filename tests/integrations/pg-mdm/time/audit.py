@@ -24,6 +24,10 @@ def main():
     root = Path(__file__).resolve().parents[4]
     container = "pgreact-s1-" + uuid.uuid4().hex[:12]
     observations = {"image": image, "checks": [], "entry_decision": "INCOMPLETE"}
+    profile_path = root / "plans/v0.49-qualification-profile.json"
+    profile = json.loads(profile_path.read_text())
+    observations["qualification_profile"] = profile
+    observations["qualification_profile_sha256"] = hashlib.sha256(profile_path.read_bytes()).hexdigest()
     created = False
 
     def command(*args):
@@ -32,9 +36,10 @@ def main():
             raise RuntimeError(" ".join(args) + "\n" + result.stdout + result.stderr)
         return result.stdout
 
-    def sql(query, database="s1_idle"):
+    def sql(query, database="s1_idle", port=5432):
         return command("docker", "exec", container, "psql", "-XAtq", "-U",
-                       "postgres", "-d", database, "-v", "ON_ERROR_STOP=1", "-c", query).strip()
+                       "postgres", "-p", str(port), "-d", database,
+                       "-v", "ON_ERROR_STOP=1", "-c", query).strip()
 
     def timestamp(value):
         try:
@@ -60,6 +65,98 @@ def main():
     def cases():
         return json.loads(sql("SELECT jsonb_agg(to_jsonb(c) ORDER BY c.case_key) "
                               "FROM mdm_steward.policy_cases_v1 c"))
+
+    def qualify_recovery(state_query):
+        before = json.loads(sql(state_query))
+        source_oid = int(sql("SELECT oid FROM pg_database WHERE datname=current_database()"))
+        assert sql(
+            "SELECT r.state='active' AND r.database_oid=" + str(source_oid) +
+            " FROM pgreact_mdm.policy_intent_bindings b "
+            "JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+            "WHERE b.policy_revision='s1-idle-feasibility' AND b.enabled") == "t"
+        sql("ALTER DATABASE s1_idle ALLOW_CONNECTIONS false", "postgres")
+        sql("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='s1_idle'", "postgres")
+        try:
+            command("docker", "exec", container, "createdb", "-U", "postgres",
+                    "--template=s1_idle", "s1_clone")
+        finally:
+            sql("ALTER DATABASE s1_idle ALLOW_CONNECTIONS true", "postgres")
+        assert int(sql("SELECT oid FROM pg_database WHERE datname=current_database()",
+                       "s1_clone")) != source_oid
+        assert json.loads(sql(state_query, "s1_clone")) == before
+        fixture("active-template-clone-guard",
+                "/work/tests/integrations/pg-mdm/time/recovery.sql", "s1_clone")
+        assert json.loads(sql(state_query, "s1_clone")) == before
+        observations["active_template_clone"] = {
+            "source_database_oid": source_oid,
+            "clone_database_oid": int(sql(
+                "SELECT oid FROM pg_database WHERE datname=current_database()", "s1_clone")),
+            "complete_state": before, "unchanged_before_activation": True,
+        }
+
+        # Pause through the entity authority before taking a coherent backup.
+        binding = json.loads(sql(
+            "SELECT jsonb_build_object('id',b.binding_id,'version',r.runtime_version) "
+            "FROM pgreact_mdm.policy_intent_bindings b "
+            "JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+            "WHERE b.policy_revision='s1-idle-feasibility' AND b.enabled"))
+        sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+            "SELECT pgreact_mdm.pause_intent_binding('" + str(uuid.UUID(binding["id"])) +
+            "'::uuid," + str(int(binding["version"])) + ")")
+        assert json.loads(sql(state_query)) == before
+        started = time.monotonic()
+        wal_before = sql("SELECT pg_current_wal_insert_lsn()")
+        resource_before = json.loads(command(
+            "docker", "stats", "--no-stream", "--format", "{{json .}}", container))
+        backup_started = time.monotonic()
+        command("docker", "exec", "--user", "postgres", container,
+                "pg_basebackup", "-U", "postgres", "-D", "/tmp/s1-recovered",
+                "--wal-method=stream", "--checkpoint=fast")
+        backup_seconds = time.monotonic() - backup_started
+        restore_started = time.monotonic()
+        command("docker", "exec", "--user", "postgres", container,
+                "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log",
+                "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases= -c pg_react.batch_size=1 "
+                "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
+                "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
+                "-c default_transaction_isolation='read committed'", "-w", "start")
+        startup_seconds = time.monotonic() - restore_started
+        try:
+            assert sql("SELECT current_setting('pg_react.databases')", port=55432) == ""
+            assert int(sql("SELECT oid FROM pg_database WHERE datname=current_database()",
+                           port=55432)) == source_oid
+            assert json.loads(sql(state_query, port=55432)) == before
+            for name, activate in (("physical-restore-guard", False),
+                                   ("physical-restore-reconcile-replay", True)):
+                result = command("docker", "exec", container, "psql", "-XAtq",
+                                 "-U", "postgres", "-p", "55432", "-d", "s1_idle",
+                                 "-v", "ON_ERROR_STOP=1", "-v", "activate=" + str(activate).lower(),
+                                 "-f", "/work/tests/integrations/pg-mdm/time/recovery.sql")
+                (output / (name + ".log")).write_text(result)
+                assert json.loads(sql(state_query, port=55432)) == before
+                observations["checks"].append({"name": name, "result": "passed"})
+                print("PASS: " + name, flush=True)
+            observations["physical_recovery"] = {
+                "same_database_oid": source_oid,
+                "postmaster_start": sql("SELECT pg_postmaster_start_time()", port=55432),
+                "seconds": time.monotonic() - started,
+                "backup_seconds": backup_seconds,
+                "restore_startup_seconds": startup_seconds,
+                "source_database_bytes": int(sql("SELECT pg_database_size(current_database())")),
+                "source_wal_bytes_during_recovery": int(sql(
+                    "SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(),'" + wal_before + "')::bigint")),
+                "container_resources_before_backup": resource_before,
+                "container_resources_with_restored_server": json.loads(command(
+                    "docker", "stats", "--no-stream", "--format", "{{json .}}", container)),
+                "measurement_scope": "Disposable recovery drill; shared-container resource samples, not workload capacity or process-memory limits.",
+                "workers_disabled_on_startup": True,
+                "complete_state": before,
+                "unchanged_before_and_after_explicit_reconciliation": True,
+            }
+        finally:
+            command("docker", "exec", "--user", "postgres", container,
+                    "pg_ctl", "-D", "/tmp/s1-recovered", "-m", "fast", "-w", "stop")
+        assert json.loads(sql(state_query)) == before, "recovery test changed the source effects"
 
     def qualify_two_case_outage(before, source, temporal_source):
         # This bounded fixture intentionally exercises two distinct, real MDM
@@ -455,6 +552,8 @@ def main():
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
                 image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_react",
+                "-c", "pg_react.batch_size=" + str(profile["max_claims_per_cycle"]),
+                "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
                 "-c", "pg_trickle.differential_max_change_ratio=1.0",
                 "-c", "default_transaction_isolation=read committed")
@@ -500,6 +599,12 @@ def main():
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
             return
+        command("docker", "exec", container, "createdb", "-U", "postgres", "s1_cycle_bound")
+        sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_cycle_bound")
+        fixture("managed-cycle-admission-bound",
+                "/work/tests/integrations/pg-mdm/time/managed-admission.sql", "s1_cycle_bound")
+        observations["managed_cycle_admission"] = json.loads(sql(
+            "SELECT jsonb_agg(to_jsonb(e) ORDER BY cycle) FROM cycle_bound.evidence e", "s1_cycle_bound"))
         fixture("refresh-permission", "/work/tests/integrations/pg-mdm/time/refresh-permission.sql", "s1_compatibility")
         producer_archive = (observations["image_labels"] or {}).get("pg_trickle.source_archive_sha256")
         fixture("mdm-bootstrap", "/tests/e2e.sql", "postgres",
@@ -1941,8 +2046,9 @@ def main():
         observations["checks"].append({
             "name": "post-resume-restart-no-replay", "result": "passed"
         })
+        qualify_recovery(quiescence_sql)
         observations["entry_decision"] = "INPUT_BLOCKED"
-        observations["remaining_inputs"] = ["1000-case/churn workload measurements", "signed numeric operating envelope"]
+        observations["remaining_inputs"] = profile["remaining_measurements"]
         print("PASS: future idle deadline -> actual MDM receipt; registered callback failure and role reset; complete case/source vectors", flush=True)
     except BaseException as error:
         observations["failure"] = str(error)
@@ -1960,6 +2066,11 @@ def main():
             logs = subprocess.run(["docker", "logs", "--tail", "100", container],
                                   capture_output=True, text=True, timeout=30)
             observations["failure_logs"] = logs.stdout + logs.stderr
+            recovery_logs = subprocess.run(
+                ["docker", "exec", container, "cat", "/tmp/s1-recovered.log"],
+                capture_output=True, text=True, timeout=30)
+            if recovery_logs.returncode == 0:
+                observations["recovery_failure_logs"] = recovery_logs.stdout
         raise
     finally:
         (output / "observations.json").write_text(json.dumps(observations, indent=2) + "\n")
