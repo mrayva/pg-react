@@ -2082,6 +2082,7 @@ def main():
         # Reconcile only after cold-restart durability was established.
         # An old paused request must retain its original BINDING_PAUSED
         # receipt, while a NEW key observes the active binding's maximum.
+        resume_before = json.loads(sql(quiescence_sql))
         fixture("resume-after-pause",
                 "/work/tests/integrations/pg-mdm/time/resume-after-pause.sql", "s1_idle")
         resumed = json.loads(sql("SELECT vector FROM s1_resume.evidence"))
@@ -2094,9 +2095,96 @@ def main():
             "name": "authorized-pause-resume-immutable-receipts", "result": "passed"
         })
 
-        # React's original enrolled single-case rule must not emit duplicate
-        # work when the binding becomes active again. Observe actual managed
-        # cycles (not just a delay) and compare complete durable state.
+        # Runtime removal/reconciliation removes/re-adds selector membership.
+        # Its new activation must receive one terminal applied-level denial,
+        # preserve every case/source row, then stay quiet on later cycles.
+        end = time.monotonic() + 35
+        while time.monotonic() < end:
+            resume_after = json.loads(sql(quiescence_sql))
+            new_work = [w for w in resume_after["rule_work"]
+                        if w not in resume_before["rule_work"]]
+            if new_work and all(w["state"] == "COMPLETED" for w in new_work):
+                break
+            time.sleep(0.2)
+        else:
+            raise AssertionError({"error": "resumed selector activation did not complete",
+                                  "state": resume_after})
+        resumed_activation = json.loads(sql(
+            "SELECT to_jsonb(m) FROM pgreact.matches m WHERE name='s1-future-idle'"))
+        assert resumed_activation["active"] and resumed_activation["generation"] == 2
+        resume_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+        resumed_case = next(c for c in resume_before["cases"] if c["case_key"] == case_key)
+        work_row, = new_work
+        attempt_row, = [a for a in resume_after["rule_attempts"]
+                        if a not in resume_before["rule_attempts"]]
+        assert int(work_row["work_id"]) == attempt_row["episode_id"] > 0
+        assert attempt_row["execution_id"] > 0
+        assert timestamp(attempt_row["started_at"]) <= timestamp(attempt_row["finished_at"]) \
+            <= timestamp(work_row["updated_at"])
+        expected_work = {"kind": "rule", "name": "s1-future-idle", "version": "1",
+                         "state": "COMPLETED", "claimable": False,
+                         "work_id": work_row["work_id"], "updated_at": work_row["updated_at"]}
+        expected_attempt = {"name": "s1-future-idle", "event_kind": "ACTIVATE",
+            "status": "COMPLETED", "attempt_no": 1, "error_code": None, "error_message": None,
+            "worker_id": "pg-react-managed/s1_idle/" + str(resume_status["process"]["pid"]),
+            **{k: attempt_row[k] for k in ("episode_id", "execution_id", "started_at", "finished_at")}}
+        body = {**expected_body,
+            "evaluation_ref": "pgreact:" + resumed_activation["activation_id"],
+            "work_ref": "pgreact:" + resumed_activation["rule_version_id"] + ":" + work_row["work_id"],
+            "expected_evidence_basis_digest": resumed_case["evidence_basis_digest"][2:],
+            **{"expected_" + k: resumed_case[k] for k in ("review_version", "definition_version",
+                "publication_revision", "stewardship_epoch", "action_revision")}}
+        key = "\\x" + sql("SELECT encode(pgreact_mdm.intent_request_key('{}'::uuid,"
+            "'s1-idle-feasibility',{},2,{},'escalate_level_2',2),'hex')".format(
+                binding["binding_id"], int(case_key), int(resumed_case["action_revision"])))
+        digest = "\\x" + sql("SELECT encode(pgreact_mdm.intent_request_digest("
+                             + sql_literal(json.dumps(body)) + "::jsonb),'hex')")
+        request_row, = [r for r in resume_after["intent_requests"]
+                        if r not in resume_before["intent_requests"]]
+        intent_row, = [a for a in resume_after["intent_attempts"]
+                       if a not in resume_before["intent_attempts"]]
+        receipt_row, = [r for r in resume_after["mdm_receipts"] if r["request_key"] == key]
+        uuid.UUID(receipt_row["receipt_id"])
+        assert timestamp(receipt_row["created_at"]).tzinfo is not None
+        for row, field in ((request_row, "created_at"), (intent_row, "attempted_at")):
+            assert timestamp(attempt_row["started_at"]) <= timestamp(row[field]) \
+                <= timestamp(attempt_row["finished_at"])
+        control = {k: resumed_case[k] for k in
+                   ("assigned_queue", "escalation_level", "manual_assignment_protected")}
+        control["due_at"] = sql("SELECT due_at::text FROM mdm_steward.policy_cases_v1 "
+                                "WHERE case_key=" + str(int(case_key)))
+        expected_denial = {**expected_receipt, "receipt_id": receipt_row["receipt_id"],
+            "created_at": receipt_row["created_at"], "outcome": "ACTION_DENIED",
+            "reason_code": "ESCALATION_LEVEL_ALREADY_APPLIED", "control": control,
+            "action_revision": resumed_case["action_revision"],
+            "request_key": key, "request_digest": digest, "request_body": body}
+        expected_request = {"binding_id": binding["binding_id"], "request_key": key,
+            "request_digest": digest, "request_body": body, "work_ref": body["work_ref"],
+            "policy_revision": "s1-idle-feasibility", "case_key": case_key,
+            "lifecycle_generation": 2, "action_revision": resumed_case["action_revision"],
+            "consequence_identity": "escalate_level_2", "escalation_level": 2,
+            "first_episode_id": attempt_row["episode_id"], "created_at": request_row["created_at"]}
+        expected_intent = {"episode_id": attempt_row["episode_id"], "attempt_no": 1,
+            "binding_id": binding["binding_id"], "request_key": key, "request_digest": digest,
+            "request_body": body, "work_ref": body["work_ref"],
+            "receipt_id": receipt_row["receipt_id"], "outcome": "ACTION_DENIED",
+            "reason_code": "ESCALATION_LEVEL_ALREADY_APPLIED", "case_key": case_key,
+            "action_revision": resumed_case["action_revision"], "control": control,
+            "resulting_publication_revision": None, "attempted_at": intent_row["attempted_at"]}
+        expected_resume = copy.deepcopy(resume_before)
+        for category, additions, order in (
+            ("rule_work", [expected_work], lambda r: int(r["work_id"])),
+            ("rule_attempts", [expected_attempt], lambda r: r["execution_id"]),
+            ("intent_requests", [expected_request], lambda r: (r["binding_id"], r["request_key"])),
+            ("intent_attempts", [expected_intent], lambda r: (r["episode_id"], r["attempt_no"])),
+            ("mdm_receipts", [resumed["new_max_denial_receipt"], expected_denial],
+             lambda r: (timestamp(r["created_at"]), r["receipt_id"]))):
+            expected_resume[category] = sorted(expected_resume[category] + additions, key=order)
+        assert resume_after == expected_resume, {"expected": expected_resume, "actual": resume_after}
+        observations["post_resume_activation"] = {
+            "before": resume_before, "expected": expected_resume, "after": resume_after,
+            "activation": resumed_activation, "denied_once": True, "controls_unchanged": True}
+        observations["checks"].append({"name": "post-resume-exact-denied-activation", "result": "passed"})
         resumed_quiet_before = json.loads(sql(quiescence_sql))
         resumed_runtime_before = json.loads(sql(
             "SELECT jsonb_build_object("

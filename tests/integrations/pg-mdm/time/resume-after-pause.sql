@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 SET TIME ZONE 'UTC';
+BEGIN;
 
 -- Run after the real operator pause and its cold-restart/no-replay proof.
 -- Reconciliation requires the exact paused MDM runtime version. Previously
@@ -199,4 +200,5 @@ SELECT jsonb_build_object(
    WHERE binding_id=:'prior_id'::uuid AND request_key=decode(repeat('fd',32),'hex')),
  'replayed_max_denial_receipt_id',:'replay_resumed_receipt_id',
  'exact',true,'cases_and_react_unchanged',true) AS vector;
+COMMIT;
 \echo PASS: authorized resume restores runtime; old pause denial replays; fresh key obeys active maximum
