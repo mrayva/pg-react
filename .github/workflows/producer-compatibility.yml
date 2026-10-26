@@ -29,13 +29,15 @@ jobs:
             .producer/mdm/tests/e2e_policy.sql \
             tests/integrations/pg-mdm/time/resume-stale-version.sql \
             > producer-evidence/source-file-sha256.txt
-      - name: Build the exact MDM-pinned producer
+      - name: Build the exact pinned candidate producer
         run: |
           mkdir -p producer-evidence
           docker build -f .producer/mdm/tests/Dockerfile.e2e \
             --build-arg PG_MDM_SOURCE_REVISION=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
-            --label pg_trickle.source_revision=d8bb8eb5d45c5c9982e173e88914037433a1ee05 \
-            --label pg_trickle.source_archive_sha256=b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da \
+            --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --label pg_trickle.source_archive_sha256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
             -t pgreact:mdm-pinned .producer/mdm > producer-evidence/mdm-build.log 2>&1
       - name: Build React on the pinned producer
         run: |

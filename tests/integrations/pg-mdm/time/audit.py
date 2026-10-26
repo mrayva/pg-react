@@ -322,6 +322,8 @@ def main():
                                         "SELECT pgreact_api.managed_cycle()", database, port))
                 assert result["state"] == "ready" and result["processed_jobs"] == 0, result
         assert json.loads(sql(state_query, database, port)) == after, "restored work replayed"
+        assert sql("SELECT has_table_privilege('pgreact_mdm_worker',"
+                   "'pgtrickle.pgt_dependencies','SELECT')", database, port) == "f"
         elapsed = time.monotonic() - started
         assert elapsed <= profile["backlog_drain_max_seconds"]
         observations[name].update(drain_seconds=elapsed, no_replay=True)
