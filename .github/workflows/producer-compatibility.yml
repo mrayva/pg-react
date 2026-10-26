@@ -29,13 +29,15 @@ jobs:
             .producer/mdm/tests/e2e_policy.sql \
             tests/integrations/pg-mdm/time/resume-stale-version.sql \
             > producer-evidence/source-file-sha256.txt
-      - name: Build the exact MDM-pinned producer
+      - name: Build the exact pinned candidate producer
         run: |
           mkdir -p producer-evidence
           docker build -f .producer/mdm/tests/Dockerfile.e2e \
             --build-arg PG_MDM_SOURCE_REVISION=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
-            --label pg_trickle.source_revision=d8bb8eb5d45c5c9982e173e88914037433a1ee05 \
-            --label pg_trickle.source_archive_sha256=b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da \
+            --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --label pg_trickle.source_archive_sha256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
             -t pgreact:mdm-pinned .producer/mdm > producer-evidence/mdm-build.log 2>&1
       - name: Build React on the pinned producer
         run: |
@@ -47,6 +49,13 @@ jobs:
           python3 tests/integrations/pg-mdm/time/audit.py pgreact:producer-compatibility producer-evidence/runtime
           python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"future-idle-mdm-receipt","stale-operator-runtime-version"} <= passed, {"passed":passed,"failure":o.get("failure")}; assert o["stale_operator_runtime_version"]["exact"] and o["stale_operator_runtime_version"]["complete_state_unchanged"]'
           python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"managed-cycle-admission-bound","active-template-clone-guard","physical-restore-guard","physical-restore-reconcile-replay"} <= passed, o.get("failure"); assert o["active_template_clone"]["unchanged_before_activation"] and o["physical_recovery"]["unchanged_before_and_after_explicit_reconciliation"]'
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); assert o["entry_decision"]=="QUALIFICATION_INCOMPLETE"; assert o["core_upgrade_rollback"]["sqlstate"]==o["mdm_upgrade_rollback"]["sqlstate"]=="P0001"; assert o["post_resume_activation"]["denied_once"] and o["post_resume_activation"]["controls_unchanged"]'
+      - name: Qualify copied pending escalation and explicit recovery
+        run: |
+          set -euo pipefail
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/pending-recovery --pending-recovery
+          python3 -c 'import json; o=json.load(open("producer-evidence/pending-recovery/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_PENDING_RECOVERY_QUALIFIED", o.get("failure"); assert {"pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432"} <= passed; assert all(o[n]["no_replay"] for n in ("pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432")); assert o["pending-recovery-s1_idle-55432"]["background_worker"]'
       - name: Qualify real downtime crossing an undelivered deadline
         run: |
           set -euo pipefail

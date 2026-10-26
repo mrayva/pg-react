@@ -4,6 +4,10 @@ SET TIME ZONE 'UTC';
 \else
 \set activate false
 \endif
+\if :{?pending}
+\else
+\set pending false
+\endif
 
 DO $guard$
 BEGIN
@@ -17,6 +21,9 @@ BEGIN
 END
 $guard$;
 
+\if :pending
+-- Pending callbacks are admitted only after the operator reconciles this copy.
+\else
 SET SESSION AUTHORIZATION mdm_s1_runtime;
 DO $cycles$
 DECLARE result jsonb;
@@ -30,6 +37,7 @@ BEGIN
 END
 $cycles$;
 RESET SESSION AUTHORIZATION;
+\endif
 
 \if :activate
 SELECT binding_id, entity_execution_role,
