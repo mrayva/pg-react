@@ -1,30 +1,41 @@
 {
   "schema_version": 1,
-  "issue": "https://github.com/trickle-labs/pg-react/issues/11",
+  "issue": "https://github.com/trickle-labs/pg-react/issues/12",
   "approval": {
     "owner": "grove",
     "date": "2026-10-26",
-    "source": "Owner explicitly authorized the recommended narrow qualification profile in the implementation conversation.",
+    "source": "Owner authorized recommended numeric qualification limits in the issue #12 implementation conversation on 2026-10-26, then explicitly approved 32 claims per release-workload cycle while retaining the one-claim safety regression.",
     "scope": "Candidate qualification thresholds; production activation and release acceptance remain separate."
   },
   "poll_interval_ms": 1000,
-  "max_claims_per_cycle": 1,
+  "max_claims_per_cycle": 32,
+  "focused_safety_max_claims_per_cycle": 1,
   "max_next_levels_per_case_evaluation": 1,
+  "maximum_escalation_level": 2,
   "workload_cases": 300,
   "offered_cases_per_minute": 60,
   "minimum_cases_per_minute": 45,
+  "simultaneous_due_burst_cases": 1000,
   "due_burst_p95_seconds": 150,
   "due_burst_max_seconds": 180,
+  "detection_dispatch_max_seconds": 180,
+  "backlog_drain_max_seconds": 180,
+  "outage_max_seconds": 120,
+  "recovery_max_seconds": 180,
+  "peak_memory_limit_bytes_exclusive": 4294967296,
+  "wal_limit_bytes_inclusive": 4294967296,
+  "row_writes_limit_inclusive": 10000000,
   "storage_limit_bytes_exclusive": 10737418240,
   "duplicate_controls_allowed": 0,
   "unauthorized_controls_allowed": 0,
   "preserve_original_deadlines": true,
   "explicit_restore_and_clone_activation": true,
-  "receipt_retention": "Retain applied-level receipts throughout the occurrence lifetime and agreed recovery horizon; do not prune before that horizon is defined.",
+  "receipt_retention": "Retain request keys, canonical request bodies and applied-level receipts throughout the occurrence lifetime and for at least 90 days after it ends; retain coherent backups across that recovery horizon. No automatic pruning is introduced.",
+  "retention_after_occurrence_days_minimum": 90,
   "remaining_measurements": [
     "Exact-current-joint-stack paired 300-case qualification, including every non-throughput gate",
     "Mixed-backlog fairness and progress under churn",
-    "Recovery time, WAL and memory baselines before numeric acceptance limits are frozen",
-    "Numeric retry, audit and recovery retention horizon"
+    "Workload-scale recovery time, row writes, WAL and peak memory against the approved numeric limits",
+    "Coherent recovery across the 90-day post-occurrence receipt/key retention horizon"
   ]
 }

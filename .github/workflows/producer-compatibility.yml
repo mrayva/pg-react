@@ -47,6 +47,13 @@ jobs:
           python3 tests/integrations/pg-mdm/time/audit.py pgreact:producer-compatibility producer-evidence/runtime
           python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"future-idle-mdm-receipt","stale-operator-runtime-version"} <= passed, {"passed":passed,"failure":o.get("failure")}; assert o["stale_operator_runtime_version"]["exact"] and o["stale_operator_runtime_version"]["complete_state_unchanged"]'
           python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"managed-cycle-admission-bound","active-template-clone-guard","physical-restore-guard","physical-restore-reconcile-replay"} <= passed, o.get("failure"); assert o["active_template_clone"]["unchanged_before_activation"] and o["physical_recovery"]["unchanged_before_and_after_explicit_reconciliation"]'
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); assert o["entry_decision"]=="QUALIFICATION_INCOMPLETE"; assert o["core_upgrade_rollback"]["sqlstate"]==o["mdm_upgrade_rollback"]["sqlstate"]=="P0001"'
+      - name: Qualify copied pending escalation and explicit recovery
+        run: |
+          set -euo pipefail
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/pending-recovery --pending-recovery
+          python3 -c 'import json; o=json.load(open("producer-evidence/pending-recovery/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_PENDING_RECOVERY_QUALIFIED", o.get("failure"); assert {"pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432"} <= passed; assert all(o[n]["no_replay"] for n in ("pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432")); assert o["pending-recovery-s1_idle-55432"]["background_worker"]'
       - name: Qualify real downtime crossing an undelivered deadline
         run: |
           set -euo pipefail

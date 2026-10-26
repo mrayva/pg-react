@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "issue": "https://github.com/trickle-labs/pg-react/issues/12",
+  "status": "blocked_pending_physical_recovery_producer_permission_failure",
+  "release_qualified": false,
+  "base_revision": "6ca2e027d9b8ba5b8b1fe3b63444df949221728b",
+  "candidate_identity": "Uncommitted qualification-only candidate; tested file SHA-256 vectors in each observation are authoritative. Rust sources and image are unchanged from the retained v0.49-recovery proof. PR-head CI must qualify the committed candidate.",
+  "profile": "../../../../../plans/v0.49-qualification-profile.json",
+  "installed_sql_sha256": {
+    "sql/pg_react--0.46.0.sql": "9edff6da86c1cc6b5e8e721abdac2d1548a702dc513b23bf925714e4e0ab5b5a",
+    "sql/pg_react--0.46.0--0.46.1.sql": "782aa8333e3b1db225f430557816e8279d8dca3c24238d221db94c2ee59528d4",
+    "sql/pg_react--0.46.1.sql": "b9927a8af5eca5334465ce7f313cc71b8f81d6ec6b0754c8842f1d6ca32df72f"
+  },
+  "environment": {
+    "image_platform": "amd64 linux",
+    "docker_host_architecture": "aarch64",
+    "docker_cpus": 10,
+    "docker_memory_bytes": 8319504384,
+    "scope": "Focused safety and recovery under x86_64 emulation; one-claim subprofile, not native ARM64 32-claim S1 workload capacity."
+  },
+  "runs": [
+    {
+      "command": "rtk proxy python3 tests/integrations/pg-mdm/time/audit.py pgreact:issue11-recovery /tmp/pgreact-issue12/full-frozen",
+      "raw_exit_code": 0,
+      "expected": "All focused assertions pass; healthy bounded restored-worker resumption is required.",
+      "actual": {
+        "entry_decision": "QUALIFICATION_INCOMPLETE",
+        "checks_passed": 50,
+        "failure": null,
+        "image_id": "sha256:036e6aca4c3245a74d277b3295ffa5c87194782ff8f90a784dee2070b3c74705",
+        "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f"
+      },
+      "observations": "full-observations.json.gz",
+      "logs": "full-logs.json.gz"
+    },
+    {
+      "command": "rtk proxy python3 tests/integrations/pg-mdm/time/audit.py pgreact:issue11-recovery /tmp/pgreact-issue12/pending-blocker --pending-recovery",
+      "raw_exit_code": 1,
+      "expected": "All focused assertions pass; healthy bounded restored-worker resumption is required.",
+      "actual": {
+        "entry_decision": "INCOMPLETE",
+        "checks_passed": 25,
+        "failure": "restored worker delivered pending work but evaluation is blocked: {'process': {'pid': 1563, 'state': 'error', 'detail': 'permission denied for table pgt_dependencies', 'protocol': 2, 'started_at': '2026-10-26T09:06:21.571662+00:00', 'heartbeat_at': '2026-10-26T09:06:21.83372+00:00', 'pending_jobs': 0, 'processed_jobs': 2}, 'database': 's1_idle', 'configured': True, 'contract_version': 5}",
+        "image_id": "sha256:036e6aca4c3245a74d277b3295ffa5c87194782ff8f90a784dee2070b3c74705",
+        "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f"
+      },
+      "observations": "pending-observations.json.gz",
+      "logs": "pending-logs.json.gz"
+    }
+  ],
+  "other_validation": [
+    "8 Rust host tests passed",
+    "cargo fmt --check",
+    "Python syntax and JSON/profile validation",
+    "current documentation audit",
+    "workflow identity audit",
+    "actionlint 1.7.7",
+    "git diff --check"
+  ],
+  "retained_failures": {
+    "artifact": "retained-failures.json.gz",
+    "dispositions": {
+      "pending-1": "Fixture called public run as the restricted runtime; corrected setup authority without expanding runtime privileges.",
+      "pending-2": "Fixture omitted SET ROLE used by the real managed worker; corrected to the actual role path.",
+      "pending-3": "Fixture decision columns lacked required NOT NULL constraints; corrected schema.",
+      "pending-4": "Clone capture adoption leaves streams suspended; added explicit operator-authorized resumption before refresh.",
+      "pending-5": "Fixture incorrectly ordered MDM statement-time receipt timestamps after clock-time request timestamps; corrected to the actual timestamp semantics while retaining due-boundary and full-vector assertions.",
+      "pending-final": "Original missing later-cycle observation retained without reclassification; instrumented rerun captures post-restart logs and worker state.",
+      "pending-diagnostic": "Completed work could be observed after a previously sampled copied worker PID; read worker status after completion commits and verify the live PID against pg_stat_activity.",
+      "pending-frozen": "Corrected poll still observes persistent producer-private pgt_dependencies permission denial across the 180-second recovery budget. Unresolved dependency blocker; do not grant private catalog access to the runtime.",
+      "maintenance-1": "Unresolved historical temporal maintenance lane: predecessor 0.46.0 rejects installed producer 0.108.3 before temporal authoring. Requires actual predecessor stack qualification; no version relabel or guard bypass."
+    }
+  },
+  "acceptance": [
+    {
+      "id": "T49.01",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Evaluation and permitted control occur within the predeclared bound without business-table changes",
+      "actual": {
+        "focused_evidence": "`future-idle-mdm-receipt`",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Joint workload detection/dispatch limits"
+    },
+    {
+      "id": "T49.02",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Boundary behavior matches the documented rule using a consistent time sample",
+      "actual": {
+        "focused_evidence": "`sample-boundaries`, routing vectors in `v0.47`",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Reconfirm on final artifacts"
+    },
+    {
+      "id": "T49.03",
+      "required": true,
+      "status": "incomplete",
+      "expected": "At most one applied escalation for the same MDM case occurrence and configured level",
+      "actual": {
+        "focused_evidence": "`post-delivery-idle-quiescence`, cross-key fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Complete mixed-load population"
+    },
+    {
+      "id": "T49.04",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Existing immutable key/body is reused; atomic control/receipt/completion behavior retained",
+      "actual": {
+        "focused_evidence": "`v0.48-live`, pending recovery and original-receipt replay",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Real crash/uncertain-commit injection on final stack"
+    },
+    {
+      "id": "T49.05",
+      "required": true,
+      "status": "incomplete",
+      "expected": "No duplicate semantic escalation even when a new work identity could otherwise be generated",
+      "actual": {
+        "focused_evidence": "`human-reduction-crosskey`",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Claimed-episode lifecycle races"
+    },
+    {
+      "id": "T49.06",
+      "required": true,
+      "status": "blocked",
+      "expected": "Bounded documented catch-up; no unbounded burst, lost eligibility or repeated applied levels",
+      "actual": {
+        "focused_evidence": "Single/two-case real outage, pending physical restore",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Producer permission blocker, 120-second outage and workload-scale recovery/drain"
+    },
+    {
+      "id": "T49.07",
+      "required": true,
+      "status": "incomplete",
+      "expected": "No new command solely because observation metadata advanced",
+      "actual": {
+        "focused_evidence": "Post-delivery/human/recurrence quiescence",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Mixed-load feedback convergence"
+    },
+    {
+      "id": "T49.08",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Deadline preserved by default; only explicit authorized replacement changes it; queued incompatible work is blocked/withdrawn",
+      "actual": {
+        "focused_evidence": "Routing/deadline fixtures, v0.48 replacement fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Queued deadline replacement and both claim orders"
+    },
+    {
+      "id": "T49.09",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Stale pending escalation cannot override current MDM state",
+      "actual": {
+        "focused_evidence": "`human-stale-after-concurrency`",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Both human-versus-React-claim orders"
+    },
+    {
+      "id": "T49.10",
+      "required": true,
+      "status": "incomplete",
+      "expected": "New MDM occurrence can receive its permitted actions without reusing a prior occurrence's request identity",
+      "actual": {
+        "focused_evidence": "`recurrence-independent`, post-recurrence restart",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Autonomous enrollment of the new occurrence"
+    },
+    {
+      "id": "T49.11",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Level bounds enforced; paused/disabled bindings accept no new intents after the barrier",
+      "actual": {
+        "focused_evidence": "`recurrence-maximum`, pause/resume/stale-version fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Pending/in-flight pause/replacement orderings"
+    },
+    {
+      "id": "T49.12",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Per-cycle bounded admissions, measured backlog behavior and eventual progress within the declared supported profile",
+      "actual": {
+        "focused_evidence": "`managed-cycle-admission-bound`, two-case drain",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Frozen paired 300-case run, fairness under churn and all resource limits"
+    },
+    {
+      "id": "C01",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Real versions/digests; enabled/disabled/missing/unsupported-major cases; rejection before side effects",
+      "actual": {
+        "focused_evidence": "Compatibility/admission fixtures and installed inventory",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Final dependency/artifact set and missing-capability cases"
+    },
+    {
+      "id": "C02",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Fresh core install without MDM; adapter disabled/absent leaves ordinary policies functional",
+      "actual": {
+        "focused_evidence": "Core-only admission/maintenance lanes",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Final core and optional-adapter packaged qualification"
+    },
+    {
+      "id": "C03",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Installer, author, runtime, observer and unauthorized-role cases; fixed search path; rejected RLS sources; no human approval privileges",
+      "actual": {
+        "focused_evidence": "`refresh-permission`, `v0.48-security`, denied worker login",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Final role inventory, denied/cross-scope/search-path matrix"
+    },
+    {
+      "id": "C04",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Existing valid authoring/review/deploy/replace/inspect calls remain valid; expected errors and stale-review rejection retained",
+      "actual": {
+        "focused_evidence": "Routing legacy signatures and maintenance API snapshots",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Complete ordinary/stale-review compatibility on final artifacts"
+    },
+    {
+      "id": "C05",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Deterministic fresh artifact; populated predecessor upgrade; schema/API inventory agrees; adapter installed and absent variants",
+      "actual": {
+        "focused_evidence": "Fresh/adjacent compatibility and populated upgrade/rollback",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Final published install/upgrade artifact identity"
+    },
+    {
+      "id": "C06",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Duplicate requests, concurrent claims, same-key/different-body conflict, deadlock/rollback and uncertain-commit replay",
+      "actual": {
+        "focused_evidence": "Codec/live fixtures, locked MDM calls, receipt replay",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Concurrent React claims and crash/uncertain-commit matrix"
+    },
+    {
+      "id": "C07",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Human changes, case closure/reopening, source/evidence revision changes, binding replacement and pause races",
+      "actual": {
+        "focused_evidence": "Human/cross-key/recurrence/pause fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Both relevant lock orders for claimed work"
+    },
+    {
+      "id": "C08",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Audit-only updates do not create work; time-only expiry does; recurrence and every bounded escalation level tested",
+      "actual": {
+        "focused_evidence": "Boundary/idle/quiescence/recurrence/maximum fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Autonomous recurrence and mixed-workload coverage"
+    },
+    {
+      "id": "C09",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Fixed population with exact coverage; partial results not accepted as complete; no effect calls or selected/unselected state mutations",
+      "actual": {
+        "focused_evidence": "Read-only comparison/routing fixtures",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Complete final population and unchanged selected/unselected state"
+    },
+    {
+      "id": "C10",
+      "required": true,
+      "status": "blocked",
+      "expected": "Restart, coherent populated backup/restore, failed upgrade recovery, disabled-effect clone boot, explicit resumption",
+      "actual": {
+        "focused_evidence": "Template clone, pending physical restore, upgrade rollback",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Producer permission blocker; logical restore/clone, physical clone activation, recovery horizon"
+    },
+    {
+      "id": "C11",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Representative load, queue growth, backlog drain, database writes/WAL/storage and retained receipt/key horizon measured; unavailable metrics labeled",
+      "actual": {
+        "focused_evidence": "Recovery baselines and one-claim cycle vectors",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Paired S1 run, WAL/writes/memory, fairness and retention horizon"
+    },
+    {
+      "id": "C12",
+      "required": true,
+      "status": "incomplete",
+      "expected": "Exact artifact under test is the artifact published; full logs and structured failures retained; no required skips",
+      "actual": {
+        "focused_evidence": "Per-run source/image/library hashes and raw observations",
+        "observations": [
+          "full-observations.json.gz",
+          "pending-observations.json.gz"
+        ]
+      },
+      "remaining": "Exact release-image paired evidence, independent review, no required omissions"
+    }
+  ],
+  "scope_boundary": "No paired-current-stack S1, logical restore/clone, full concurrency/fairness, 90-day recovery horizon, independent review, release acceptance, production activation or merge claim.",
+  "artifacts": {
+    "full-logs.json.gz": "023c6a8f5513d40e3333eb51eb587d6474ac264655654985aac3d58b13d504e3",
+    "full-observations.json.gz": "7a38b24560841b741825959bc8bb213a1d932b35d6298566cd209c7c25d23e4c",
+    "pending-logs.json.gz": "e7771ce8c59a6e7cadc5937ba0b613cd55a3fb5d3b0e7975cfc4e876b2891079",
+    "pending-observations.json.gz": "08291e392d4a4e0f1bf95c0f3f9fa5d8ed9d764bb9766e7692c2b7dba412e2f7",
+    "retained-failures.json.gz": "99565faafeb55f21a11ccb84ed82f7e1663e9251335c1f9c553bdf3120ee45dc"
+  }
+}

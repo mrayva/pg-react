@@ -17,17 +17,20 @@ def main():
     compatibility_only = sys.argv[3:] == ["--compatibility"]
     outage_mode = sys.argv[3:] == ["--outage"]
     multi_outage = sys.argv[3:] == ["--multi-outage"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage):
-        raise ValueError("only --maintenance, --compatibility, --outage or --multi-outage is supported after IMAGE OUTPUT")
+    pending_recovery = sys.argv[3:] == ["--pending-recovery"]
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery):
+        raise ValueError("only --maintenance, --compatibility, --outage, --multi-outage or --pending-recovery is supported after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parents[4]
     container = "pgreact-s1-" + uuid.uuid4().hex[:12]
-    observations = {"image": image, "checks": [], "entry_decision": "INCOMPLETE"}
+    observations = {"image": image, "checks": [], "entry_decision": "INCOMPLETE", "release_qualified": False}
     profile_path = root / "plans/v0.49-qualification-profile.json"
     profile = json.loads(profile_path.read_text())
     observations["qualification_profile"] = profile
     observations["qualification_profile_sha256"] = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    observations["tested_max_claims_per_cycle"] = profile["focused_safety_max_claims_per_cycle"]
+    observations["qualification_scope"] = "Focused safety/recovery at one claim per cycle; release workload capacity is not qualified."
     created = False
 
     def command(*args):
@@ -66,7 +69,7 @@ def main():
         return json.loads(sql("SELECT jsonb_agg(to_jsonb(c) ORDER BY c.case_key) "
                               "FROM mdm_steward.policy_cases_v1 c"))
 
-    def qualify_recovery(state_query):
+    def qualify_recovery(state_query, pending=False):
         before = json.loads(sql(state_query))
         source_oid = int(sql("SELECT oid FROM pg_database WHERE datname=current_database()"))
         assert sql(
@@ -85,7 +88,8 @@ def main():
                        "s1_clone")) != source_oid
         assert json.loads(sql(state_query, "s1_clone")) == before
         fixture("active-template-clone-guard",
-                "/work/tests/integrations/pg-mdm/time/recovery.sql", "s1_clone")
+                "/work/tests/integrations/pg-mdm/time/recovery.sql", "s1_clone",
+                ("-v", "pending=" + str(pending).lower()))
         assert json.loads(sql(state_query, "s1_clone")) == before
         observations["active_template_clone"] = {
             "source_database_oid": source_oid,
@@ -93,6 +97,17 @@ def main():
                 "SELECT oid FROM pg_database WHERE datname=current_database()", "s1_clone")),
             "complete_state": before, "unchanged_before_activation": True,
         }
+        if pending:
+            sql("SELECT pgtrickle.recover_capture_instance()", "s1_clone")
+            fixture("template-clone-pending-reconcile",
+                    "/work/tests/integrations/pg-mdm/time/recovery.sql", "s1_clone",
+                    ("-v", "pending=true", "-v", "activate=true"))
+            assert json.loads(sql(state_query, "s1_clone")) == before
+            # Capture adoption deliberately suspends copied streams until the operator resumes them.
+            sql("SELECT pgtrickle.resume_stream_table(format('%I.%I',pgt_schema,pgt_name)) "
+                "FROM pgtrickle.pgt_stream_tables WHERE status='SUSPENDED' ORDER BY pgt_id", "s1_clone")
+            drain_restored_pending(state_query, before, "s1_clone")
+            assert json.loads(sql(state_query)) == before, "clone recovery changed the source"
 
         # Pause through the entity authority before taking a coherent backup.
         binding = json.loads(sql(
@@ -131,6 +146,7 @@ def main():
                 result = command("docker", "exec", container, "psql", "-XAtq",
                                  "-U", "postgres", "-p", "55432", "-d", "s1_idle",
                                  "-v", "ON_ERROR_STOP=1", "-v", "activate=" + str(activate).lower(),
+                                 "-v", "pending=" + str(pending).lower(),
                                  "-f", "/work/tests/integrations/pg-mdm/time/recovery.sql")
                 (output / (name + ".log")).write_text(result)
                 assert json.loads(sql(state_query, port=55432)) == before
@@ -153,10 +169,195 @@ def main():
                 "complete_state": before,
                 "unchanged_before_and_after_explicit_reconciliation": True,
             }
+            if pending:
+                drain_restored_pending(state_query, before, "s1_idle", 55432, automatic=True)
+            observations["physical_recovery"]["seconds"] = time.monotonic() - started
+            assert observations["physical_recovery"]["seconds"] <= profile["recovery_max_seconds"]
         finally:
             command("docker", "exec", "--user", "postgres", container,
                     "pg_ctl", "-D", "/tmp/s1-recovered", "-m", "fast", "-w", "stop")
         assert json.loads(sql(state_query)) == before, "recovery test changed the source effects"
+
+    def drain_restored_pending(state_query, before, database, port=5432, automatic=False):
+        pending_work = [w for w in before["work"] if w["state"] == "PENDING"]
+        assert len(pending_work) == 1 and pending_work[0]["claimable"], pending_work
+        pending_id = pending_work[0]["work_id"]
+        context = json.loads(sql(
+            "SELECT jsonb_build_object('case_key',(new_bindings->>'case_key')::bigint,"
+            "'activation_id',activation_id,'rule_version_id',rule_version_id,"
+            "'generation',activation_generation,'revision',activation_revision) "
+            "FROM pgreact_internal.agenda WHERE episode_id=" + str(int(pending_id)), database, port))
+        case = next(c for c in before["cases"] if c["case_key"] == context["case_key"])
+        binding = json.loads(sql(
+            "SELECT to_jsonb(b) FROM pgreact_mdm.policy_intent_bindings b "
+            "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility'", database, port))
+        body = {
+            "action": "ESCALATE", "arguments": {"level": 2}, "case_key": case["case_key"],
+            "binding_id": binding["binding_id"], "policy_revision": "s1-idle-feasibility",
+            "expected_policy_digest": binding["policy_digest"][2:],
+            "expected_evidence_basis_digest": case["evidence_basis_digest"][2:],
+            "evaluation_ref": "pgreact:" + context["activation_id"],
+            "work_ref": "pgreact:" + context["rule_version_id"] + ":" + pending_id,
+            **{"expected_" + name: case[name] for name in ("review_version", "definition_version",
+                "publication_revision", "stewardship_epoch", "action_revision")}}
+        key = sql("SELECT encode(pgreact_mdm.intent_request_key('{}'::uuid,"
+            "'s1-idle-feasibility',{},{},{},'escalate_level_2',2),'hex')".format(
+                binding["binding_id"], case["case_key"], context["generation"], case["action_revision"]), database, port)
+        digest = sql("SELECT encode(pgreact_mdm.intent_request_digest('" +
+            json.dumps(body).replace("'", "''") + "'::jsonb),'hex')", database, port)
+        started = time.monotonic()
+        if automatic:
+            command("docker", "exec", "--user", "postgres", container,
+                    "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log", "-m", "fast", "-w", "restart",
+                    "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases=s1_idle "
+                    "-c pg_react.worker_role=mdm_s1_runtime -c pg_react.batch_size=1 "
+                    "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
+                    "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
+                    "-c default_transaction_isolation='read committed'")
+            end = started + profile["recovery_max_seconds"]
+            while time.monotonic() < end:
+                if sql("SELECT state FROM pgreact.work WHERE work_id='" + pending_id + "'", database, port) == "COMPLETED":
+                    # Read the worker after completion commits; a prior poll can still contain the copied PID.
+                    status = json.loads(sql("SELECT pgreact_api.managed_status()", database, port))
+                    observations["restored_pending_worker_status"] = status
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("restored background worker did not drain pending escalation")
+            cycle = {"pid": status["process"]["pid"]}
+            assert sql("SELECT usename FROM pg_stat_activity WHERE pid=" + str(int(cycle["pid"])), database, port) == "mdm_s1_runtime"
+        else:
+            cycle = json.loads(sql("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                                   "SELECT jsonb_build_object('result',pgreact_api.managed_cycle(),"
+                                   "'pid',pg_backend_pid())", database, port))
+            result = cycle["result"]
+            assert result["state"] == "ready" and result["processed_jobs"] == 1, result
+        after = json.loads(sql(state_query, database, port))
+        expected_cases = copy.deepcopy(before["cases"])
+        expected_case = next(c for c in expected_cases if c["case_key"] == case["case_key"])
+        expected_case["escalation_level"] = 2
+        expected_case["action_revision"] += 1
+        assert after["cases"] == expected_cases
+        assert after["business"] == before["business"] and after["technical"] == before["technical"]
+        new_receipts = [r for r in after["receipts"] if r not in before["receipts"]]
+        assert len(new_receipts) == 1, new_receipts
+        receipt = new_receipts[0]
+        uuid.UUID(receipt["receipt_id"])
+        expected_receipt = {
+            "receipt_id": receipt["receipt_id"], "created_at": receipt["created_at"],
+            "actor": "pgreact_mdm_worker", "selected_role_name": "pgreact_mdm_worker",
+            "session_role_name": "mdm_s1_runtime", "action": "ESCALATE", "outcome": "APPLIED_CONTROL",
+            "reason_code": "CONTROL_APPLIED", "case_key": case["case_key"],
+            "binding_id": binding["binding_id"], "binding_version": binding["binding_version"],
+            "action_revision": expected_case["action_revision"], "resulting_publication_revision": None,
+            "request_body": body, "request_key": "\\x" + key, "request_digest": "\\x" + digest,
+            "control": {k: expected_case[k] for k in
+                        ("assigned_queue", "due_at", "escalation_level", "manual_assignment_protected")}}
+        expected_receipt["control"]["due_at"] = sql(
+            "SELECT due_at::text FROM mdm_steward.policy_cases_v1 WHERE case_key=" + str(case["case_key"]), database, port)
+        assert new_receipts == [expected_receipt], {"expected": expected_receipt, "actual": new_receipts}
+        assert after["receipts"] == before["receipts"] + [expected_receipt]
+        new_requests = [r for r in after["requests"] if r not in before["requests"]]
+        new_intent_attempts = [a for a in after["intent_attempts"] if a not in before["intent_attempts"]]
+        assert len(new_requests) == len(new_intent_attempts) == 1
+        request = new_requests[0]
+        intent_attempt = new_intent_attempts[0]
+        assert new_requests == [{
+            "binding_id": binding["binding_id"], "request_key": "\\x" + key,
+            "request_digest": "\\x" + digest, "request_body": body, "work_ref": body["work_ref"],
+            "policy_revision": "s1-idle-feasibility", "case_key": case["case_key"],
+            "lifecycle_generation": context["generation"], "action_revision": case["action_revision"],
+            "consequence_identity": "escalate_level_2", "escalation_level": 2,
+            "first_episode_id": int(pending_id), "created_at": request["created_at"]}], new_requests
+        assert new_intent_attempts == [{
+            "episode_id": int(pending_id), "attempt_no": 1,
+            **{k: expected_receipt[k] for k in ("binding_id", "request_key", "request_digest",
+                "request_body", "receipt_id", "outcome", "reason_code", "case_key", "action_revision",
+                "control", "resulting_publication_revision")},
+            "work_ref": body["work_ref"], "attempted_at": intent_attempt["attempted_at"]}], new_intent_attempts
+        assert [r for r in after["requests"] if r not in new_requests] == before["requests"]
+        assert [a for a in after["intent_attempts"] if a not in new_intent_attempts] == before["intent_attempts"]
+        expected_work = copy.deepcopy(before["work"])
+        restored_work = next(w for w in after["work"] if w["work_id"] == pending_id)
+        expected_pending = next(w for w in expected_work if w["work_id"] == pending_id)
+        expected_pending.update(state="COMPLETED", claimable=False, updated_at=restored_work["updated_at"])
+        assert after["work"] == expected_work
+        assert [a for a in after["attempts"] if str(a["episode_id"]) != pending_id] == before["attempts"]
+        new_attempts = [a for a in after["attempts"] if str(a["episode_id"]) == pending_id]
+        assert len(new_attempts) == 1, new_attempts
+        attempt = new_attempts[0]
+        assert new_attempts == [{
+            "execution_id": attempt["execution_id"], "episode_id": int(pending_id), "attempt_no": 1,
+            "worker_id": "pg-react-managed/" + database + "/" + str(cycle["pid"]),
+            "status": "COMPLETED", "error_message": None, "error_code": None,
+            "started_at": attempt["started_at"], "finished_at": attempt["finished_at"],
+            "event_kind": "ACTIVATE", "name": "s1-future-idle"}], new_attempts
+        assert timestamp(case["due_at"]) <= timestamp(attempt["started_at"]) <= timestamp(request["created_at"])
+        # MDM receipts use statement_timestamp(); adapter audit rows use clock_timestamp().
+        assert timestamp(case["due_at"]) <= timestamp(receipt["created_at"]) <= timestamp(attempt["finished_at"])
+        assert timestamp(request["created_at"]) <= timestamp(intent_attempt["attempted_at"])
+        assert timestamp(intent_attempt["attempted_at"]) <= timestamp(attempt["finished_at"])
+        assert timestamp(attempt["finished_at"]) <= timestamp(restored_work["updated_at"])
+        name = "pending-recovery-" + database + "-" + str(port)
+        observations[name] = {"before": before, "expected_cases": expected_cases,
+                              "expected_receipt": expected_receipt, "after": after,
+                              "background_worker": automatic, "no_replay": False}
+        if automatic and status["process"]["state"] == "error":
+            observations["checks"].append({"name": name, "result": "failed", "actual": status})
+            raise AssertionError("restored worker delivered pending work but evaluation is blocked: " + str(status))
+        if automatic:
+            first = timestamp(status["process"]["heartbeat_at"])
+            end = started + profile["recovery_max_seconds"]
+            while time.monotonic() < end:
+                status = json.loads(sql("SELECT pgreact_api.managed_status()", database, port))
+                observations["restored_later_worker_status"] = status
+                if status["process"]["state"] == "ready" and timestamp(status["process"]["heartbeat_at"]) > first + datetime.timedelta(seconds=3):
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("restored background worker did not complete later cycles: " + str(status))
+        else:
+            for _ in range(2):
+                result = json.loads(sql("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                                        "SELECT pgreact_api.managed_cycle()", database, port))
+                assert result["state"] == "ready" and result["processed_jobs"] == 0, result
+        assert json.loads(sql(state_query, database, port)) == after, "restored work replayed"
+        elapsed = time.monotonic() - started
+        assert elapsed <= profile["backlog_drain_max_seconds"]
+        observations[name].update(drain_seconds=elapsed, no_replay=True)
+        observations["checks"].append({"name": name, "result": "passed"})
+        print("PASS: " + name, flush=True)
+
+    def qualify_pending_recovery():
+        sql("SELECT pgreact_api.pause_rule('s1-callback-failure')")
+        end = time.monotonic() + 60
+        while sql("SELECT bool_and(deadline <= clock_timestamp()) FROM s1_audit.source") != "t":
+            assert time.monotonic() < end, "pending recovery setup did not reach both deadlines"
+            time.sleep(0.2)
+        # Fixture setup queues work; delivery below uses the restricted runtime login.
+        sql("SELECT pgreact_api.run()")
+        work = json.loads(sql("SELECT jsonb_agg(to_jsonb(w) ORDER BY work_id) "
+                              "FROM pgreact.work w WHERE name='s1-future-idle'"))
+        assert [{k: w[k] for k in ("state", "claimable")} for w in work] == [
+            {"state": "PENDING", "claimable": True}, {"state": "PENDING", "claimable": True}], work
+        result = json.loads(sql("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                                "SELECT pgreact_api.managed_cycle()"))
+        assert result["state"] == "ready" and result["processed_jobs"] == 1, result
+        state_query = (
+            "SELECT jsonb_build_object("
+            "'cases',(SELECT jsonb_agg(to_jsonb(c) ORDER BY case_key) FROM mdm_steward.policy_cases_v1 c),"
+            "'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) FROM mdm_steward.policy_receipts_v1 r),"
+            "'requests',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id,request_key),'[]') FROM pgreact_mdm.intent_requests r),"
+            "'intent_attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY episode_id,attempt_no),'[]') FROM pgreact_mdm.intent_attempts a),"
+            "'work',(SELECT jsonb_agg(to_jsonb(w) ORDER BY work_id) FROM pgreact.work w WHERE name='s1-future-idle'),"
+            "'attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY execution_id),'[]') FROM pgreact.attempts a WHERE name='s1-future-idle'),"
+            "'business',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.policy_qualification_source s),"
+            "'technical',(SELECT jsonb_agg(to_jsonb(s) ORDER BY case_key) FROM s1_audit.source s))")
+        before = json.loads(sql(state_query))
+        observations["pending_setup"] = {"cycle": result, "state": before}
+        assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
+        qualify_recovery(state_query, pending=True)
+        observations["entry_decision"] = "FOCUSED_PENDING_RECOVERY_QUALIFIED"
 
     def qualify_two_case_outage(before, source, temporal_source):
         # This bounded fixture intentionally exercises two distinct, real MDM
@@ -552,7 +753,7 @@ def main():
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
                 image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_react",
-                "-c", "pg_react.batch_size=" + str(profile["max_claims_per_cycle"]),
+                "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
                 "-c", "pg_trickle.differential_max_change_ratio=1.0",
@@ -577,8 +778,11 @@ def main():
             "'compatibility',pgreact_internal.pgtrickle_integration_status())", "s1_compatibility"))
         fixture("compatibility", "/work/tests/integrations/pg-mdm/time/compatibility.sql", "s1_compatibility")
         command("docker", "exec", container, "createdb", "-U", "postgres", "s1_compatibility_upgrade")
-        sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react VERSION '0.46.0'; "
-            "ALTER EXTENSION pg_react UPDATE TO '0.46.1'", "s1_compatibility_upgrade")
+        sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react VERSION '0.46.0'", "s1_compatibility_upgrade")
+        fixture("populated-core-upgrade-rollback", "/work/tests/integrations/pg-mdm/time/upgrade-rollback.sql",
+                "s1_compatibility_upgrade")
+        observations["core_upgrade_rollback"] = json.loads(sql(
+            "SELECT result FROM upgrade_rollback.evidence", "s1_compatibility_upgrade"))
         callable_query = (
             "SELECT jsonb_agg(jsonb_build_object('identity',p.oid::regprocedure::text,"
             "'owner',pg_get_userbyid(p.proowner),'acl',p.proacl::text,"
@@ -626,8 +830,16 @@ def main():
         try:
             command("docker", "exec", container, "createdb", "-U", "postgres",
                     "--template=foundation", "s1_idle")
+            command("docker", "exec", container, "createdb", "-U", "postgres",
+                    "--template=foundation", "s1_mdm_upgrade")
         finally:
             sql("ALTER DATABASE foundation ALLOW_CONNECTIONS true", "postgres")
+        sql("CREATE EXTENSION pg_react VERSION '0.46.0'", "s1_mdm_upgrade")
+        fixture("populated-mdm-upgrade-rollback", "/work/tests/integrations/pg-mdm/time/upgrade-rollback.sql",
+                "s1_mdm_upgrade")
+        observations["mdm_upgrade_rollback"] = json.loads(sql(
+            "SELECT result FROM upgrade_rollback.evidence", "s1_mdm_upgrade"))
+        command("docker", "exec", container, "dropdb", "-U", "postgres", "--force", "s1_mdm_upgrade")
         # Recover only the disposable clone's capture identity, before future-deadline setup.
         observations["clone_capture_recovery"] = sql("SELECT pgtrickle.recover_capture_instance()")
         assert cases() == observations["mdm_entry_cases"], "clone recovery changed MDM cases"
@@ -738,7 +950,10 @@ def main():
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_boundary")
         fixture("sample-boundaries", "/work/tests/integrations/pg-mdm/time/boundaries.sql", "s1_boundary")
         fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
-                ("-v", "multi=" + str(multi_outage).lower(), "-v", "VERBOSITY=verbose"))
+                ("-v", "multi=" + str(multi_outage or pending_recovery).lower(), "-v", "VERBOSITY=verbose"))
+        if pending_recovery:
+            qualify_pending_recovery()
+            return
         observations["registered_s1_rules"] = json.loads(sql(
             "SELECT COALESCE(jsonb_agg(jsonb_build_object('rule_name',r.rule_name,'rule_id',r.rule_id,"
             "'rule_version_id',v.rule_version_id,'match_name',v.match_name) ORDER BY r.rule_name),'[]') "
@@ -2047,8 +2262,8 @@ def main():
             "name": "post-resume-restart-no-replay", "result": "passed"
         })
         qualify_recovery(quiescence_sql)
-        observations["entry_decision"] = "INPUT_BLOCKED"
-        observations["remaining_inputs"] = profile["remaining_measurements"]
+        observations["entry_decision"] = "QUALIFICATION_INCOMPLETE"
+        observations["remaining_gates"] = profile["remaining_measurements"]
         print("PASS: future idle deadline -> actual MDM receipt; registered callback failure and role reset; complete case/source vectors", flush=True)
     except BaseException as error:
         observations["failure"] = str(error)

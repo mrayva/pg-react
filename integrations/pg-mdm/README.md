@@ -139,3 +139,7 @@ For installed MDM M1 qualification, bootstrap the upstream image with
 
 The package is adapter-owned and optional; the core pg-react extension remains
 usable without it.
+
+For the managed-deadline candidate, see the [v0.49 qualification profile and
+operator procedure](../../docs/v0.49-qualification.md). It records prospective
+limits, focused upgrade/recovery proofs and the remaining release gates.
