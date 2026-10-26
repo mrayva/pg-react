@@ -568,6 +568,12 @@ BEGIN
             'state', 'blocked', 'pending_jobs', pending, 'processed_jobs', 0,
             'compatibility', status);
     END IF;
+    IF NOT pg_is_in_recovery()
+       AND to_regprocedure('pgreact_mdm.sync_intent_case_identities()') IS NOT NULL THEN
+        -- Enroll MDM-owned occurrences before the existing refresh/time frontier.
+        PERFORM pg_catalog.pg_advisory_xact_lock(5788046901200000);
+        EXECUTE 'SELECT pgreact_mdm.sync_intent_case_identities()';
+    END IF;
     RETURN pgreact_internal.managed_cycle_m44(process_pid);
 END
 $pgtrickle$;

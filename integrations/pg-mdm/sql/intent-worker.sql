@@ -526,9 +526,17 @@ BEGIN
     INSERT INTO pgreact_mdm.intent_case_identities(entity_name, case_key)
     SELECT binding.entity_name, policy_case.case_key
     FROM pgreact_mdm.policy_intent_bindings AS binding
+    JOIN pgreact_mdm.policy_intent_runtime AS runtime USING (binding_id)
     JOIN pgreact_mdm.authorized_policy_cases_v1 AS policy_case
       ON policy_case.entity_name = binding.entity_name
     WHERE binding.enabled
+      AND runtime.database_oid = (SELECT oid FROM pg_catalog.pg_database WHERE datname = current_database())
+      AND runtime.worker_role_oid = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'pgreact_mdm_worker')
+      AND NOT EXISTS (
+          SELECT 1 FROM pgreact_mdm.intent_case_identities AS existing
+          WHERE existing.entity_name = binding.entity_name
+            AND existing.case_key = policy_case.case_key)
+    ORDER BY binding.entity_name, policy_case.case_key
     ON CONFLICT (entity_name, case_key) DO NOTHING;
     GET DIAGNOSTICS inserted = ROW_COUNT;
     RETURN inserted;
