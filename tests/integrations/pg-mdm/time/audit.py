@@ -19,7 +19,8 @@ def main():
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
     autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence):
+    claimed_work = sys.argv[3:] == ["--claimed-work"]
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence or claimed_work):
         raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -810,8 +811,11 @@ def main():
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
             return
-        if autonomous_recurrence:
-            from autonomous_recurrence import qualify
+        if autonomous_recurrence or claimed_work:
+            if claimed_work:
+                from claimed_work import qualify
+            else:
+                from autonomous_recurrence import qualify
             observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
                 "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
                 "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()

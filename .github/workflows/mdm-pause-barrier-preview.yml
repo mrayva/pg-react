@@ -1,0 +1,79 @@
+name: MDM pause barrier repair preview (not pinned release)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mdm_pause_barrier_preview:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: trickle-labs/pg-mdm
+          ref: 40e9cb7b9018627e2ecb17ca387017950d438c31
+          path: .producer/mdm
+      - name: Record and enforce exact repair source
+        run: |
+          set -euo pipefail
+          mkdir -p pause-evidence
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "40e9cb7b9018627e2ecb17ca387017950d438c31"
+          git -C .producer/mdm rev-parse HEAD > pause-evidence/mdm-source.txt
+          git rev-parse HEAD > pause-evidence/react-source.txt
+          (cd .producer/mdm && git archive --format=tar HEAD) | sha256sum > pause-evidence/mdm-archive-sha256.txt
+          sha256sum .producer/mdm/src/api/policy_intent.rs .producer/mdm/tests/policy_pause_barrier.sql \
+            integrations/pg-mdm/sql/intent-worker.sql tests/integrations/pg-mdm/time/claimed* \
+            plans/v0.49-qualification-profile.json > pause-evidence/source-sha256.txt
+      - name: Build repaired MDM with the unchanged selected producer
+        run: |
+          set -euo pipefail
+          docker build -f .producer/mdm/tests/Dockerfile.e2e \
+            --build-arg PG_MDM_SOURCE_REVISION=40e9cb7b9018627e2ecb17ca387017950d438c31 \
+            --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --label pg_trickle.source_archive_sha256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            -t pgreact:mdm-pause-preview .producer/mdm > pause-evidence/mdm-build.log 2>&1
+          docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
+            --build-arg PG_MDM_IMAGE=pgreact:mdm-pause-preview \
+            -t pgreact:pause-preview . > pause-evidence/react-build.log 2>&1
+      - name: Repeat deterministic claimed-work matrix
+        run: |
+          set -euo pipefail
+          for run in first repeat; do
+            python3 tests/integrations/pg-mdm/time/audit.py \
+              pgreact:pause-preview "pause-evidence/$run" --claimed-work
+            python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); required={"claimed-pause-barrier","pause-first-runtime-freshness","paused-before-claim","human-edit-claim-orders","binding-replacement-claim-orders","fresh-after-terminal-pause","cross-key-after-human-reduction"}; passed={x["name"] for x in o["checks"] if x["result"]=="passed"}; assert required<=passed, o.get("failure"); assert o["entry_decision"]=="FOCUSED_CLAIMED_PAUSE_QUALIFIED"; assert not o["claimed_pause"]["pause_acknowledged_before_delivery_release"]' "pause-evidence/$run/observations.json"
+          done
+      - name: Preserve real autonomous recurrence
+        run: |
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:pause-preview pause-evidence/recurrence --autonomous-recurrence
+      - name: Run unchanged full joint audit and pending recovery
+        run: |
+          set -euo pipefail
+          python3 tests/integrations/pg-mdm/time/audit.py pgreact:pause-preview pause-evidence/full
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:pause-preview pause-evidence/pending --pending-recovery
+      - name: Retain image and inherited binary identities
+        if: always()
+        run: |
+          set -euo pipefail
+          docker image inspect pgreact:mdm-pause-preview pgreact:pause-preview > pause-evidence/images.json
+          docker run --rm --entrypoint sha256sum pgreact:mdm-pause-preview \
+            /usr/lib/postgresql/18/lib/pg_mdm.so /usr/lib/postgresql/18/lib/pg_trickle.so > pause-evidence/mdm-libraries.txt
+          docker run --rm --entrypoint sha256sum pgreact:pause-preview \
+            /usr/lib/postgresql/18/lib/pg_mdm.so /usr/lib/postgresql/18/lib/pg_trickle.so > pause-evidence/joint-libraries.txt
+          cmp pause-evidence/mdm-libraries.txt pause-evidence/joint-libraries.txt
+          docker run --rm --entrypoint sha256sum pgreact:pause-preview \
+            /usr/lib/postgresql/18/lib/pg_react.so > pause-evidence/react-library.txt
+          sha256sum pause-evidence/*.txt pause-evidence/images.json > pause-evidence/identity-sha256.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mdm-pause-barrier-preview-evidence
+          path: pause-evidence/
