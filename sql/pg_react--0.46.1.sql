@@ -52937,6 +52937,7 @@ AS $pgtrickle$
 DECLARE worker text := format('pg-react-managed/%s/%s', current_database(), process_pid);
     pending bigint;
     status jsonb;
+    adapter_ready boolean;
 BEGIN
     SELECT count(*) INTO pending
     FROM pgreact_internal.agenda job
@@ -52963,6 +52964,27 @@ BEGIN
         RETURN jsonb_build_object(
             'state', 'blocked', 'pending_jobs', pending, 'processed_jobs', 0,
             'compatibility', status);
+    END IF;
+    IF to_regclass('pgreact_mdm.policy_intent_bindings') IS NOT NULL THEN
+        IF to_regprocedure('pgreact_mdm.policy_runtime_ready()') IS NULL THEN
+            EXECUTE 'SELECT NOT EXISTS (SELECT 1 FROM pgreact_mdm.policy_intent_bindings WHERE enabled)'
+                INTO adapter_ready;
+        ELSE
+            EXECUTE 'SELECT pgreact_mdm.policy_runtime_ready()' INTO adapter_ready;
+        END IF;
+        IF NOT COALESCE(adapter_ready, false) THEN
+            INSERT INTO pgreact_internal.managed_processes (
+                database_oid, database_name, backend_pid, state, protocol, pending_jobs, detail)
+            VALUES ((SELECT oid FROM pg_database WHERE datname = current_database()),
+                    current_database(), process_pid, 'error', 2, pending,
+                    'MDM activation required')
+            ON CONFLICT (database_oid) DO UPDATE
+            SET backend_pid = EXCLUDED.backend_pid, state = 'error', protocol = EXCLUDED.protocol,
+                pending_jobs = EXCLUDED.pending_jobs, heartbeat_at = clock_timestamp(),
+                detail = EXCLUDED.detail;
+            RETURN jsonb_build_object('state', 'blocked', 'pending_jobs', pending,
+                                      'processed_jobs', 0, 'reason', 'MDM activation required');
+        END IF;
     END IF;
     IF NOT pg_is_in_recovery()
        AND to_regprocedure('pgreact_mdm.sync_intent_case_identities()') IS NOT NULL THEN

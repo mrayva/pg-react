@@ -1,0 +1,12 @@
+{
+  "react_revision_at_start": "5d8cd7acfb22918cceaa453a4f0bc1304b4e408b",
+  "audit_sha256": "f4e27086b942d009f7b3650aa3f95cd2c14ed04a5399e2384977a9a294240b31",
+  "image": "sha256:0f68e5112d2c734db10303658010086ebfa071c00ef61db3b23c7e040102e530",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_source": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+  "pg_trickle_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+  "scope": "Local dirty-source amd64-emulated diagnostic; producer differs from release pin; not qualification.",
+  "exit": 1,
+  "result": "All human, recurrence, pause and active restart checks passed; physical restore guard passed; explicit activation failed because restored postmaster did not preload pg_mdm.",
+  "archive_sha256": "2d3e91784dc749e5844a014fe3ca92ca6eca93730bed0257d046f81745eeccfd"
+}

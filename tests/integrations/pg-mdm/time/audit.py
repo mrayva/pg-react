@@ -18,9 +18,11 @@ def main():
     outage_mode = sys.argv[3:] == ["--outage"]
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
+    clean_clone = sys.argv[3:] == ["--clean-clone"]
+    direct_clone = sys.argv[3:] == ["--clean-clone-direct"]
     autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
     claimed_work = sys.argv[3:] == ["--claimed-work"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence or claimed_work):
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or clean_clone or direct_clone or autonomous_recurrence or claimed_work):
         raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -34,6 +36,7 @@ def main():
     observations["tested_max_claims_per_cycle"] = profile["focused_safety_max_claims_per_cycle"]
     observations["qualification_scope"] = "Focused safety/recovery at one claim per cycle; release workload capacity is not qualified."
     created = False
+    clone_volume = None
 
     def command(*args):
         result = subprocess.run(args, capture_output=True, text=True, timeout=300)
@@ -47,11 +50,19 @@ def main():
                        "-v", "ON_ERROR_STOP=1", "-c", query).strip()
 
     def timestamp(value):
+        value = value.replace(" ", "T", 1)
+        if len(value) >= 3 and value[-3] in "+-" and value[-2:].isdigit():
+            value += ":00"
         try:
             return datetime.datetime.fromisoformat(value)
         except ValueError:
             layout = "%Y-%m-%dT%H:%M:%S.%f%z" if "." in value else "%Y-%m-%dT%H:%M:%S%z"
             return datetime.datetime.strptime(value, layout)
+
+    assert timestamp("2026-10-27 14:15:28.957184+00") == datetime.datetime(
+        2026, 10, 27, 14, 15, 28, 957184, tzinfo=datetime.timezone.utc)
+    assert timestamp("2026-10-27T09:24:55.69977+00:00") == datetime.datetime(
+        2026, 10, 27, 9, 24, 55, 699770, tzinfo=datetime.timezone.utc)
 
     def fixture(name, file, database="foundation", variables=()):
         started = time.monotonic()
@@ -134,6 +145,7 @@ def main():
         command("docker", "exec", "--user", "postgres", container,
                 "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log",
                 "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases= -c pg_react.batch_size=1 "
+                "-c shared_preload_libraries=pg_trickle,pg_mdm,pg_react "
                 "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
                 "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
                 "-c default_transaction_isolation='read committed'", "-w", "start")
@@ -180,7 +192,7 @@ def main():
                     "pg_ctl", "-D", "/tmp/s1-recovered", "-m", "fast", "-w", "stop")
         assert json.loads(sql(state_query)) == before, "recovery test changed the source effects"
 
-    def drain_restored_pending(state_query, before, database, port=5432, automatic=False):
+    def drain_restored_pending(state_query, before, database, port=5432, automatic=False, already_running=False):
         pending_work = [w for w in before["work"] if w["state"] == "PENDING"]
         assert len(pending_work) == 1 and pending_work[0]["claimable"], pending_work
         pending_id = pending_work[0]["work_id"]
@@ -209,13 +221,14 @@ def main():
             json.dumps(body).replace("'", "''") + "'::jsonb),'hex')", database, port)
         started = time.monotonic()
         if automatic:
-            command("docker", "exec", "--user", "postgres", container,
-                    "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log", "-m", "fast", "-w", "restart",
-                    "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases=s1_idle "
-                    "-c pg_react.worker_role=mdm_s1_runtime -c pg_react.batch_size=1 "
-                    "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
-                    "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
-                    "-c default_transaction_isolation='read committed'")
+            if not already_running:
+                command("docker", "exec", "--user", "postgres", container,
+                        "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log", "-m", "fast", "-w", "restart",
+                        "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases=s1_idle "
+                        "-c pg_react.worker_role=mdm_s1_runtime -c pg_react.batch_size=1 "
+                        "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
+                        "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
+                        "-c default_transaction_isolation='read committed'")
             end = started + profile["recovery_max_seconds"]
             while time.monotonic() < end:
                 if sql("SELECT state FROM pgreact.work WHERE work_id='" + pending_id + "'", database, port) == "COMPLETED":
@@ -241,6 +254,9 @@ def main():
         expected_case["action_revision"] += 1
         assert after["cases"] == expected_cases
         assert after["business"] == before["business"] and after["technical"] == before["technical"]
+        assert after["identities"] == before["identities"]
+        assert after["identity_sequence"] == before["identity_sequence"]
+        assert after["holds"] == before["holds"]
         new_receipts = [r for r in after["receipts"] if r not in before["receipts"]]
         assert len(new_receipts) == 1, new_receipts
         receipt = new_receipts[0]
@@ -353,6 +369,9 @@ def main():
             "'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) FROM mdm_steward.policy_receipts_v1 r),"
             "'requests',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id,request_key),'[]') FROM pgreact_mdm.intent_requests r),"
             "'intent_attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY episode_id,attempt_no),'[]') FROM pgreact_mdm.intent_attempts a),"
+            "'holds',(SELECT COALESCE(jsonb_agg(to_jsonb(h) ORDER BY binding_id,case_key,policy_revision,expected_action_revision),'[]') FROM pgreact_mdm.intent_holds h),"
+            "'identities',(SELECT COALESCE(jsonb_agg(to_jsonb(i) ORDER BY case_identity),'[]') FROM pgreact_mdm.intent_case_identities i),"
+            "'identity_sequence',(SELECT jsonb_build_object('last_value',last_value,'is_called',is_called) FROM pgreact_mdm.intent_case_identities_case_identity_seq),"
             "'work',(SELECT jsonb_agg(to_jsonb(w) ORDER BY work_id) FROM pgreact.work w WHERE name='s1-future-idle'),"
             "'attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY execution_id),'[]') FROM pgreact.attempts a WHERE name='s1-future-idle'),"
             "'business',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.policy_qualification_source s),"
@@ -360,8 +379,180 @@ def main():
         before = json.loads(sql(state_query))
         observations["pending_setup"] = {"cycle": result, "state": before}
         assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
+        if clean_clone or direct_clone:
+            qualify_clean_clone(state_query, before)
+            return
         qualify_recovery(state_query, pending=True)
         observations["entry_decision"] = "FOCUSED_PENDING_RECOVERY_QUALIFIED"
+
+    def qualify_clean_clone(state_query, before):
+        nonlocal container, clone_volume
+        original = container
+        clone = original + "-clone"
+        identity_query = (
+            "SELECT jsonb_build_object('database_oid',(SELECT oid FROM pg_database WHERE datname=current_database()),"
+            "'worker_oid',(SELECT oid FROM pg_roles WHERE rolname='pgreact_mdm_worker'),"
+            "'bindings',(SELECT jsonb_agg(to_jsonb(b) ORDER BY binding_id) FROM pgreact_mdm.policy_intent_bindings b),"
+            "'react_runtime',(SELECT jsonb_agg(to_jsonb(r) ORDER BY binding_id) FROM pgreact_mdm.policy_intent_runtime r),"
+            "'mdm_runtime',(SELECT jsonb_agg(to_jsonb(r) ORDER BY binding_id) FROM mdm_internal.policy_binding_runtime r))")
+        identity = json.loads(sql(identity_query))
+        assert identity["react_runtime"] and identity["mdm_runtime"]
+        has_epoch = sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") == "t"
+        source_epoch = sql("SELECT encode(mdm_internal.policy_runtime_epoch(),'hex')") if has_epoch else None
+        if has_epoch:
+            assert len(source_epoch) == 64
+        assert sql("SHOW data_directory") == "/var/lib/postgresql/18/docker"
+        sql("ALTER SYSTEM SET pg_react.databases = " + ("''" if direct_clone else "'s1_idle'"))
+        sql("ALTER SYSTEM SET pg_react.worker_role = 'mdm_s1_runtime'")
+        command("docker", "stop", "-t", "60", original)
+        try:
+            clone_volume = clone + "-data"
+            command("docker", "volume", "create", clone_volume)
+            command("docker", "run", "--rm", "--network", "none", "--user", "0", "--volumes-from", original,
+                    "--mount", "type=volume,source=" + clone_volume + ",destination=/clone",
+                    "--entrypoint", "cp", image, "-a", "/var/lib/postgresql/.", "/clone/")
+            command("docker", "create", "--name", clone, "--network", "none",
+                    "--mount", "type=volume,source=" + clone_volume + ",destination=/var/lib/postgresql",
+                    "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
+                    image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_mdm,pg_react",
+                    "-c", "pg_react.batch_size=1", "-c", "pg_react.poll_interval_ms=1000",
+                    "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
+                    "-c", "pg_trickle.differential_max_change_ratio=1.0",
+                    "-c", "default_transaction_isolation=read committed")
+            container = clone
+            command("docker", "start", clone)
+            end = time.monotonic() + 60
+            while time.monotonic() < end:
+                ready = subprocess.run(["docker", "exec", clone, "pg_isready", "-U", "postgres"], capture_output=True)
+                if not ready.returncode:
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("clean clone did not start")
+            actual_identity = json.loads(sql(identity_query))
+            assert actual_identity == identity, {"expected": identity, "actual": actual_identity}
+            if has_epoch:
+                clone_epoch = sql("SELECT encode(mdm_internal.policy_runtime_epoch(),'hex')")
+                assert len(clone_epoch) == 64 and clone_epoch != source_epoch
+                observations["postmaster_epochs"] = {"source": source_epoch, "clone": clone_epoch}
+            if direct_clone:
+                assert json.loads(sql(state_query)) == before
+                pending_id = next(w["work_id"] for w in before["work"] if w["state"] == "PENDING")
+                case_key = int(sql("SELECT (new_bindings->>'case_key')::bigint FROM pgreact_internal.agenda "
+                                   "WHERE episode_id=" + str(int(pending_id))))
+                case = next(c for c in before["cases"] if c["case_key"] == case_key)
+                binding = next(b for b in identity["bindings"] if b["enabled"])
+                query = ("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                         "SELECT to_jsonb(r) FROM mdm_steward.submit_policy_intent("
+                         "'{}'::uuid,decode(repeat('f',64),'hex'),{},'ESCALATE','{{\"level\":2}}'::jsonb,"
+                         "{},{},{},{},decode('{}','hex'),{},decode('{}','hex'),'{}','clone-direct','clone-direct') r")
+                query = query.format(binding["binding_id"], case_key, case["review_version"],
+                                     case["definition_version"], case["publication_revision"],
+                                     case["stewardship_epoch"], case["evidence_basis_digest"][2:],
+                                     case["action_revision"], binding["policy_digest"][2:], binding["policy_revision"])
+                try:
+                    response = {"result": json.loads(sql(query))}
+                except RuntimeError as error:
+                    response = {"error": str(error)}
+                after = json.loads(sql(state_query))
+                observations["clean_clone_direct"] = {"identity": actual_identity, "before": before,
+                                                       "response": response, "after": after}
+                assert "explicit policy activation is required for this postmaster" in response.get("error", ""), response
+                assert after == before, "blocked MDM delivery changed durable recovery state"
+                observations["checks"].append({"name": "clean-clone-direct-delivery-blocked", "result": "passed"})
+                return
+            postmaster_start = timestamp(json.loads(sql("SELECT to_json(pg_postmaster_start_time())")))
+            end = time.monotonic() + 30
+            while time.monotonic() < end:
+                after = json.loads(sql(state_query))
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                if after != before:
+                    break
+                process = status.get("process") or {}
+                if (process.get("state") == "error" and process.get("detail") == "MDM activation required"
+                        and process.get("heartbeat_at")
+                        and timestamp(process["heartbeat_at"]) > postmaster_start + datetime.timedelta(seconds=4)):
+                    break
+                time.sleep(0.2)
+            observations["clean_clone"] = {"identity": actual_identity, "before": before, "after": after,
+                                           "managed_status": status}
+            assert after == before, "clean physical clone changed durable work or controls before activation"
+            assert process.get("state") == "error" and process.get("detail") == "MDM activation required" and process.get("heartbeat_at") and \
+                timestamp(process["heartbeat_at"]) > postmaster_start + datetime.timedelta(seconds=4), status
+            observations["checks"].append({"name": "clean-clone-preactivation", "result": "passed"})
+            request = before["requests"][0]
+            body = request["request_body"]
+            old_attempt = next(a for a in before["intent_attempts"] if a["request_key"] == request["request_key"])
+            quote = lambda value: str(value).replace("'", "''")
+            replay = ("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                      "SELECT to_jsonb(r) FROM mdm_steward.submit_policy_intent("
+                      "'{}'::uuid,decode('{}','hex'),{},'{}','{}'::jsonb,{},{},{},{},"
+                      "decode('{}','hex'),{},decode('{}','hex'),'{}','{}','{}') r").format(
+                          request["binding_id"], request["request_key"][2:], request["case_key"],
+                          quote(body["action"]), quote(json.dumps(body["arguments"])),
+                          body["expected_review_version"], body["expected_definition_version"],
+                          body["expected_publication_revision"], body["expected_stewardship_epoch"],
+                          body["expected_evidence_basis_digest"], body["expected_action_revision"],
+                          body["expected_policy_digest"], quote(request["policy_revision"]),
+                          quote(body["evaluation_ref"]), quote(request["work_ref"]))
+            expected_receipt = {k: old_attempt[k] for k in ("receipt_id", "outcome", "reason_code", "case_key",
+                                "action_revision", "control", "resulting_publication_revision")}
+            assert json.loads(sql(replay)) == expected_receipt
+            assert json.loads(sql(state_query)) == before
+            binding = next(b for b in identity["bindings"] if b["enabled"])
+            runtime = next(r for r in identity["mdm_runtime"] if r["binding_id"] == binding["binding_id"])
+            activate = "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                binding["binding_id"], runtime["runtime_version"])
+            rejections = observations["activation_rejections"] = {}
+            try:
+                sql("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; " + activate)
+                raise AssertionError("worker role unexpectedly activated the copied binding")
+            except RuntimeError as error:
+                rejections["unauthorized"] = str(error)
+                assert "MDM_WORKER_ROLE_MEMBERSHIP" in str(error) or "MDM_BINDING_ACTOR" in str(error), str(error)
+            assert json.loads(sql(state_query)) == before
+            stale = "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                binding["binding_id"], runtime["runtime_version"] - 1)
+            try:
+                sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + stale)
+                raise AssertionError("stale runtime version unexpectedly activated the copied binding")
+            except RuntimeError as error:
+                rejections["stale_version"] = str(error)
+                assert "runtime version is stale or binding is replaced" in str(error), str(error)
+            sql("GRANT mdm_helper_owner TO pgreact_mdm_worker")
+            try:
+                try:
+                    sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
+                    raise AssertionError("unsafe worker membership unexpectedly activated the copied binding")
+                except RuntimeError as error:
+                    rejections["unsafe_worker_membership"] = str(error)
+                    assert "MDM_WORKER_ROLE_MEMBERSHIP" in str(error), str(error)
+            finally:
+                sql("REVOKE mdm_helper_owner FROM pgreact_mdm_worker")
+            try:
+                sql("BEGIN; SET LOCAL pg_trickle.cdc_mode=wal; "
+                    "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
+                raise AssertionError("unsupported producer settings unexpectedly activated the copied binding")
+            except RuntimeError as error:
+                rejections["unsupported_producer"] = str(error)
+                assert "pg-react pg_trickle runtime is unsupported" in str(error), str(error)
+            try:
+                unexpected = sql("BEGIN; UPDATE pgreact_mdm.policy_intent_bindings SET max_escalation_level=1 "
+                                 "WHERE binding_id='" + binding["binding_id"] + "'::uuid; "
+                                 "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
+                rejections["binding_mismatch_unexpected_result"] = unexpected
+                raise AssertionError("mismatched adapter binding unexpectedly activated")
+            except RuntimeError as error:
+                rejections["binding_mismatch"] = str(error)
+                assert "MDM_RECOVERY_BINDING_MISMATCH" in str(error), str(error)
+            assert json.loads(sql(state_query)) == before
+            sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
+            drain_restored_pending(state_query, before, "s1_idle", automatic=True, already_running=True)
+            observations["entry_decision"] = "FOCUSED_CLEAN_CLONE_RECOVERY_QUALIFIED"
+        finally:
+            subprocess.run(["docker", "rm", "--force", "--volumes", original], capture_output=True)
+            if container != clone:
+                subprocess.run(["docker", "rm", "--force", "--volumes", clone], capture_output=True)
 
     def qualify_two_case_outage(before, source, temporal_source):
         # This bounded fixture intentionally exercises two distinct, real MDM
@@ -760,7 +951,8 @@ def main():
             "docker", "info", "--format", "{{.Architecture}} {{.NCPU}} {{.MemTotal}}").strip()
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
-                image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_react",
+                image, "postgres", "-c", "shared_preload_libraries=" +
+                ("pg_trickle,pg_react" if compatibility_only else "pg_trickle,pg_mdm,pg_react"),
                 "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
@@ -811,6 +1003,23 @@ def main():
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
             return
+        if clean_clone or direct_clone:
+            observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
+                "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
+                "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()
+            fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
+            sql("INSERT INTO public.policy_qualification_source VALUES "
+                "(5,'Clone One','clone-one@example.test',statement_timestamp()),"
+                "(6,'Clone One','clone-pair@example.test',statement_timestamp()),"
+                "(7,'Clone Two','clone-two@example.test',statement_timestamp()),"
+                "(8,'Clone Two','clone-pair@example.test',statement_timestamp())")
+            sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT mdm.refresh('policy_qualification','ALLOW')")
+            assert sql("SELECT count(*) FROM mdm_steward.policy_cases_v1 WHERE status='open'") == "2"
+            fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
+                    ("-v", "multi=true", "-v", "VERBOSITY=verbose"))
+            qualify_pending_recovery()
+            return
         if autonomous_recurrence or claimed_work:
             if claimed_work:
                 from claimed_work import qualify
@@ -822,7 +1031,10 @@ def main():
             fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
             fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
                     ("-v", "multi=false", "-v", "VERBOSITY=verbose"))
-            qualify(sql, command, fixture, container, observations)
+            if claimed_work:
+                qualify(sql, command, fixture, container, observations)
+            else:
+                qualify(sql, command, fixture, container, observations, timestamp)
             return
         command("docker", "exec", container, "createdb", "-U", "postgres", "s1_cycle_bound")
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_cycle_bound")
@@ -971,8 +1183,8 @@ def main():
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_boundary")
         fixture("sample-boundaries", "/work/tests/integrations/pg-mdm/time/boundaries.sql", "s1_boundary")
         fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
-                ("-v", "multi=" + str(multi_outage or pending_recovery).lower(), "-v", "VERBOSITY=verbose"))
-        if pending_recovery:
+                ("-v", "multi=" + str(multi_outage or pending_recovery or clean_clone).lower(), "-v", "VERBOSITY=verbose"))
+        if pending_recovery or clean_clone:
             qualify_pending_recovery()
             return
         observations["registered_s1_rules"] = json.loads(sql(
@@ -1078,6 +1290,30 @@ def main():
             }
         else:
             command("docker", "restart", container)
+        command("docker", "exec", container, "sh", "-c",
+                "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
+        if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") == "t":
+            activation_deadline = time.monotonic() + 30
+            while time.monotonic() < activation_deadline:
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                process = status.get("process") or {}
+                if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("managed worker did not block for post-restart activation")
+            assert cases() == before
+            assert json.loads(sql("SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) "
+                                  "FROM mdm_steward.policy_receipts_v1 r")) == observations["mdm_entry_receipts"]
+            runtime = json.loads(sql("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
+                "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+                "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility'"))
+            observations["post_restart_activation"] = {"blocked_status": status, "runtime_before": runtime}
+            observations["post_restart_activation"]["runtime_after"] = int(sql(
+                "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                    runtime["binding_id"], runtime["runtime_version"])))
+            assert observations["post_restart_activation"]["runtime_after"] == runtime["runtime_version"] + 1
         end = time.monotonic() + 120
         receipts = []
         while time.monotonic() < end:
@@ -1320,6 +1556,35 @@ def main():
             "'technical_source',(SELECT COALESCE(jsonb_agg(to_jsonb(s) ORDER BY case_key),'[]') "
             "FROM s1_audit.source s))"
         )
+        def activate_after_restart(name, expected, expect_worker=True):
+            command("docker", "exec", container, "sh", "-c",
+                    "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
+            if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NULL") == "t":
+                return
+            if expect_worker:
+                end = time.monotonic() + 30
+                while time.monotonic() < end:
+                    status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                    process = status.get("process") or {}
+                    if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                        break
+                    time.sleep(0.2)
+                else:
+                    raise AssertionError("managed worker did not block for " + name)
+            else:
+                assert sql("SELECT pgreact_mdm.policy_runtime_ready()") == "f"
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+            assert json.loads(sql(quiescence_sql)) == expected
+            runtime = json.loads(sql("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
+                "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+                "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility' AND r.state='active'"))
+            version = int(sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                    runtime["binding_id"], runtime["runtime_version"])))
+            assert version == runtime["runtime_version"] + 1
+            observations.setdefault("restart_activations", {})[name] = {
+                "blocked_status": status, "runtime_before": runtime, "runtime_after": version}
+
         quiescence_before = json.loads(sql(quiescence_sql))
         saved_requests = [
             row for row in quiescence_before["intent_requests"]
@@ -1368,6 +1633,7 @@ def main():
         before_restart_state = quiescence_after
         before_restart_heartbeat = timestamp(later_status["process"]["heartbeat_at"])
         command("docker", "restart", container)
+        activate_after_restart("post_delivery", before_restart_state)
         end = time.monotonic() + 60
         restart_status = None
         restart_postmaster = None
@@ -1478,6 +1744,7 @@ def main():
                             managed_status=json.loads(sql("SELECT pgreact_api.managed_status()")),
                             deadline_history=json.loads(sql("SELECT pgreact_api.deadline_history('s1-future-idle')")))
         observations["checks"].append({"name": "future-idle-mdm-receipt", "result": "passed"})
+        activate_after_restart("after_rejected_worker", json.loads(sql(quiescence_sql)), expect_worker=False)
         # Separate authority-level regression after the proven worker delivery,
         # restart and privilege tests. This intentionally changes only the
         # MDM case via its authorized human API, then sends two *new* keys
@@ -1506,6 +1773,7 @@ def main():
         sql("ALTER SYSTEM SET pg_react.worker_role = 'mdm_s1_runtime'")
         postmaster_before_human = timestamp(sql("SELECT pg_postmaster_start_time()"))
         command("docker", "restart", container)
+        activate_after_restart("post_human_reduction", human_quiet_before)
         end = time.monotonic() + 60
         human_worker_status = None
         human_postmaster = None
@@ -1811,6 +2079,7 @@ def main():
         old_postmaster = timestamp(sql("SELECT pg_postmaster_start_time()"))
         old_heartbeat = timestamp(observed_heartbeat)
         command("docker", "restart", container)
+        activate_after_restart("post_recurrence", before_recurrence_restart)
         restart_end = time.monotonic() + 60
         restarted_status = None
         new_postmaster = None
@@ -1941,6 +2210,7 @@ def main():
         max_start_before = timestamp(sql("SELECT pg_postmaster_start_time()"))
         max_heartbeat_before = timestamp(heartbeat)
         command("docker", "restart", container)
+        activate_after_restart("post_maximum", max_restart_before)
         end = time.monotonic() + 60
         max_restart_status = None
         max_start_after = None
@@ -2016,8 +2286,8 @@ def main():
             "name": "authorized-pause-barrier", "result": "passed"
         })
         # The operator-owned paused binding must remain paused after a real
-        # PostgreSQL restart, and the enrolled worker must not manufacture
-        # new work or any MDM control while it resumes heartbeat cycles.
+        # PostgreSQL restart, and the worker must not manufacture effects
+        # while heartbeat cycles remain fenced pending reconciliation.
         pause_before = json.loads(sql(quiescence_sql))
         pause_binding_before = json.loads(sql(
             "SELECT jsonb_build_object("
@@ -2032,6 +2302,7 @@ def main():
         previous_postmaster = timestamp(sql("SELECT pg_postmaster_start_time()"))
         previous_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
         previous_heartbeat = timestamp(previous_status["process"]["heartbeat_at"])
+        pause_requires_activation = sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") == "t"
         command("docker", "restart", container)
         until = time.monotonic() + 60
         after_postmaster = None
@@ -2046,8 +2317,10 @@ def main():
             resumed_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
             process = resumed_status.get("process") or {}
             new_heartbeat = process.get("heartbeat_at")
+            expected_pause_state = "error" if pause_requires_activation else "ready"
             if (after_postmaster > previous_postmaster
-                    and process.get("state") == "ready" and new_heartbeat
+                    and process.get("state") == expected_pause_state and new_heartbeat
+                    and (not pause_requires_activation or process.get("detail") == "MDM activation required")
                     and timestamp(new_heartbeat) > previous_heartbeat):
                 break
             time.sleep(0.2)
@@ -2062,7 +2335,8 @@ def main():
             resumed_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
             process = resumed_status.get("process") or {}
             new_heartbeat = process.get("heartbeat_at")
-            if (process.get("state") == "ready" and new_heartbeat
+            if (process.get("state") == expected_pause_state and new_heartbeat
+                    and (not pause_requires_activation or process.get("detail") == "MDM activation required")
                     and timestamp(new_heartbeat) > first_resumed + datetime.timedelta(seconds=3)):
                 break
             time.sleep(0.2)
@@ -2228,9 +2502,19 @@ def main():
         assert any(r["binding_id"] == resumed["binding_id"]
                    and r["runtime_version"] == resumed["reactivated_runtime_version"]
                    for r in resumed_runtime_before["runtime"]), resumed_runtime_before
-        resumed_worker = json.loads(sql("SELECT pgreact_api.managed_status()"))
-        process = resumed_worker.get("process") or {}
-        assert process.get("state") == "ready" and process.get("heartbeat_at"), resumed_worker
+        until = time.monotonic() + 30
+        while time.monotonic() < until:
+            resumed_worker = json.loads(sql("SELECT pgreact_api.managed_status()"))
+            process = resumed_worker.get("process") or {}
+            if process.get("state") == "ready" and process.get("heartbeat_at"):
+                break
+            if process.get("state") == "error" and process.get("detail") != "MDM activation required":
+                raise AssertionError(resumed_worker)
+            time.sleep(0.2)
+        else:
+            raise AssertionError({"error": "managed worker did not resume after binding reconciliation",
+                                  "status": resumed_worker})
+        assert json.loads(sql(quiescence_sql)) == resumed_quiet_before
         start_heartbeat = timestamp(process["heartbeat_at"])
         until = time.monotonic() + 35
         while time.monotonic() < until:
@@ -2313,6 +2597,27 @@ def main():
         assert final_status["process"]["state"] == "ready", final_status
         final_heartbeat = timestamp(final_status["process"]["heartbeat_at"])
         command("docker", "restart", container)
+        activate_after_restart("post_resume", final_before)
+        final_binding_activated = json.loads(sql(
+            "SELECT jsonb_build_object("
+            "'bindings',(SELECT COALESCE(jsonb_agg(to_jsonb(b) ORDER BY binding_id),'[]') FROM pgreact_mdm.policy_intent_bindings b),"
+            "'runtime',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id),'[]') FROM pgreact_mdm.policy_intent_runtime r),"
+            "'mdm_runtime',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id),'[]') FROM mdm_internal.policy_binding_runtime r))"))
+        if "post_resume" in observations.get("restart_activations", {}):
+            activation = observations["restart_activations"]["post_resume"]
+            assert final_binding_activated["bindings"] == final_binding_before["bindings"]
+            for key, changed in (("runtime", {"runtime_version", "activated_at"}),
+                                 ("mdm_runtime", {"runtime_version", "activation_epoch", "changed_at"})):
+                before_rows, after_rows = final_binding_before[key], final_binding_activated[key]
+                assert len(before_rows) == len(after_rows)
+                for old, new in zip(before_rows, after_rows):
+                    if old["binding_id"] == activation["runtime_before"]["binding_id"]:
+                        assert new["runtime_version"] == activation["runtime_after"]
+                        assert {k: v for k, v in new.items() if k not in changed} == {k: v for k, v in old.items() if k not in changed}
+                    else:
+                        assert new == old
+        else:
+            assert final_binding_activated == final_binding_before
         end = time.monotonic() + 60
         restarted = None
         new_postmaster = None
@@ -2364,9 +2669,9 @@ def main():
             "error": "post-resume restart replayed or changed durable state",
             "before": final_before, "after": final_after,
         }
-        assert final_binding_after == final_binding_before, {
+        assert final_binding_after == final_binding_activated, {
             "error": "post-resume restart changed binding version or state",
-            "before": final_binding_before, "after": final_binding_after,
+            "before": final_binding_activated, "after": final_binding_after,
         }
         observations["post_resume_restart"] = {
             "postmaster_before": final_start.isoformat(),
@@ -2376,8 +2681,10 @@ def main():
             "full_before": final_before,
             "full_after": final_after,
             "bindings_before": final_binding_before,
+            "bindings_after_activation": final_binding_activated,
             "bindings_after": final_binding_after,
             "unchanged": True,
+            "bindings_unchanged_after_activation": True,
         }
         observations["checks"].append({
             "name": "post-resume-restart-no-replay", "result": "passed"
@@ -2412,6 +2719,8 @@ def main():
         (output / "observations.json").write_text(json.dumps(observations, indent=2) + "\n")
         if created:
             command("docker", "rm", "--force", "--volumes", container)
+        if clone_volume:
+            command("docker", "volume", "rm", clone_volume)
 
 
 if __name__ == "__main__":
