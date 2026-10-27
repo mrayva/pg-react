@@ -15,15 +15,17 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: trickle-labs/pg-mdm
-          ref: 6ad23ca11cb956f264e93e46a6351d32ea4a1ca8
+          ref: 061705d17dae52697f6e7371b7840722a6ad4bde
           path: .producer/mdm
       - name: Record and enforce exact pinned MDM source identity
         run: |
           set -euo pipefail
           mkdir -p producer-evidence
-          test "$(git -C .producer/mdm rev-parse HEAD)" = "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8"
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "061705d17dae52697f6e7371b7840722a6ad4bde"
           git -C .producer/mdm rev-parse HEAD > producer-evidence/mdm-source-revision.txt
           git rev-parse HEAD > producer-evidence/react-source-revision.txt
+          git archive --format=tar HEAD | sha256sum > producer-evidence/react-source-archive-sha256.txt
+          sha256sum plans/v0.49-qualification-profile.json > producer-evidence/profile-sha256.txt
           (cd .producer/mdm && git archive --format=tar HEAD) | sha256sum > producer-evidence/mdm-source-archive-sha256.txt
           sha256sum .producer/mdm/src/api/policy_intent.rs \
             .producer/mdm/tests/e2e_policy.sql \
@@ -33,7 +35,7 @@ jobs:
         run: |
           mkdir -p producer-evidence
           docker build -f .producer/mdm/tests/Dockerfile.e2e \
-            --build-arg PG_MDM_SOURCE_REVISION=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
+            --build-arg PG_MDM_SOURCE_REVISION=061705d17dae52697f6e7371b7840722a6ad4bde \
             --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
             --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
             --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
@@ -44,6 +46,35 @@ jobs:
           docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
             --build-arg PG_MDM_IMAGE=pgreact:mdm-pinned \
             -t pgreact:producer-compatibility . > producer-evidence/react-build.log 2>&1
+      - name: Record and compare inherited packaged shared libraries
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          : > producer-evidence/executable-sha256.txt
+          for profile in mdm-pinned producer-compatibility; do
+            container="$(docker create "pgreact:$profile")"
+            for module in pg_mdm pg_trickle; do
+              docker cp "$container:/usr/lib/postgresql/18/lib/$module.so" "$tmp/$profile-$module.so"
+              sha256sum "$tmp/$profile-$module.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
+            done
+            if [ "$profile" = producer-compatibility ]; then
+              docker cp "$container:/usr/lib/postgresql/18/lib/pg_react.so" "$tmp/$profile-pg_react.so"
+              sha256sum "$tmp/$profile-pg_react.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
+            fi
+            docker rm "$container" >/dev/null
+          done
+          for module in pg_mdm pg_trickle; do
+            cmp "$tmp/mdm-pinned-$module.so" "$tmp/producer-compatibility-$module.so"
+          done
+      - name: Repeat deterministic claimed-work matrix
+        run: |
+          set -euo pipefail
+          for run in first repeat; do
+            python3 tests/integrations/pg-mdm/time/audit.py \
+              pgreact:producer-compatibility "producer-evidence/claimed-$run" --claimed-work
+            python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); required={"claimed-pause-barrier","pause-first-runtime-freshness","paused-before-claim","human-edit-claim-orders","binding-replacement-claim-orders","fresh-after-terminal-pause","cross-key-after-human-reduction"}; passed={x["name"] for x in o["checks"] if x["result"]=="passed"}; assert required<=passed, o.get("failure"); assert o["entry_decision"]=="FOCUSED_CLAIMED_PAUSE_QUALIFIED"; assert not o["claimed_pause"]["pause_acknowledged_before_delivery_release"]' "producer-evidence/claimed-$run/observations.json"
+          done
       - name: Qualify autonomous MDM recurrence and cold restart
         run: |
           set -euo pipefail
@@ -74,27 +105,6 @@ jobs:
           python3 tests/integrations/pg-mdm/time/audit.py \
             pgreact:producer-compatibility producer-evidence/two-case-outage --multi-outage
           python3 -c 'import json; o=json.load(open("producer-evidence/two-case-outage/observations.json")); checks={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_TWO_CASE_OUTAGE_QUALIFIED", o.get("failure"); assert "two-case-real-outage-drain-and-no-replay" in checks, checks; e=o["multi_outage"]; assert e["exact"] and e["no_replay_across_cycles_and_restart"] and len(e["two_receipts"])==2 and e["configured_limits"]["pg_react.batch_size"]=="1"; assert 0 < e["two_case_drain_seconds"] <= 150 and e["observed_receipt_progress"][-1]["receipt_count"]==2; assert e["per_cycle_claim_bound"]["managed_to_claim_bound_verified"] and e["per_cycle_claim_bound"]["per_cycle_configured_claim_limit"]==1'
-      - name: Record and compare inherited packaged shared libraries
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          trap 'rm -rf "$tmp"' EXIT
-          : > producer-evidence/executable-sha256.txt
-          for profile in mdm-pinned producer-compatibility; do
-            container="$(docker create "pgreact:$profile")"
-            for module in pg_mdm pg_trickle; do
-              docker cp "$container:/usr/lib/postgresql/18/lib/$module.so" "$tmp/$profile-$module.so"
-              sha256sum "$tmp/$profile-$module.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
-            done
-            if [ "$profile" = producer-compatibility ]; then
-              docker cp "$container:/usr/lib/postgresql/18/lib/pg_react.so" "$tmp/$profile-pg_react.so"
-              sha256sum "$tmp/$profile-pg_react.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
-            fi
-            docker rm "$container" >/dev/null
-          done
-          for module in pg_mdm pg_trickle; do
-            cmp "$tmp/mdm-pinned-$module.so" "$tmp/producer-compatibility-$module.so"
-          done
       - name: Retain exact image identity
         if: always()
         run: |
