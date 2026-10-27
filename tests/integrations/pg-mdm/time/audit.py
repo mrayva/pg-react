@@ -358,6 +358,16 @@ def main():
             "'attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY execution_id),'[]') FROM pgreact.attempts a WHERE name='s1-future-idle'),"
             "'business',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.policy_qualification_source s),"
             "'technical',(SELECT jsonb_agg(to_jsonb(s) ORDER BY case_key) FROM s1_audit.source s))")
+        if logical_restore:
+            state_query = state_query[:-1] + (
+                ",'rules',(SELECT COALESCE(jsonb_agg((to_jsonb(r)-'owner_oid') || "
+                "jsonb_build_object('owner_name',pg_get_userbyid(r.owner_oid)) ORDER BY rule_id),'[]') FROM pgreact_internal.rules r),"
+                "'rule_versions',(SELECT COALESCE(jsonb_agg((to_jsonb(v)-ARRAY['owner_oid','source_view_oid','match_relid','consequence_oid','dispatcher_oid']) || "
+                "jsonb_build_object('owner_name',pg_get_userbyid(v.owner_oid),'source_identity',v.source_view_oid::regclass::text,"
+                "'match_identity',v.match_relid::regclass::text,'consequence_actual',v.consequence_oid::regprocedure::text,"
+                "'dispatcher_actual',v.dispatcher_oid::regprocedure::text) ORDER BY rule_version_id),'[]') FROM pgreact_internal.rule_versions v),"
+                "'activations',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY rule_version_id,activation_id),'[]') FROM pgreact_internal.activation_state a),"
+                "'events',(SELECT COALESCE(jsonb_agg(to_jsonb(e) ORDER BY event_id),'[]') FROM pgreact_internal.lifecycle_events e))")
         before = json.loads(sql(state_query))
         observations["pending_setup"] = {"cycle": result, "state": before}
         assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
@@ -368,6 +378,10 @@ def main():
         observations["entry_decision"] = "FOCUSED_PENDING_RECOVERY_QUALIFIED"
 
     def qualify_logical_restore(state_query, before):
+        config_query = ("SELECT COALESCE(jsonb_agg(c.oid::regclass::text ORDER BY c.oid::regclass::text),'[]') "
+                        "FROM pg_extension e CROSS JOIN LATERAL unnest(e.extconfig) object_oid "
+                        "JOIN pg_class c ON c.oid=object_oid WHERE e.extname='pg_react'")
+        observations["react_dump_config"] = json.loads(sql(config_query))
         command("docker", "exec", container, "pg_dump", "-Fc", "-U", "postgres", "-d", "s1_idle",
                 "-f", "/tmp/s1-logical.dump")
         command("docker", "exec", container, "createdb", "-U", "postgres", "s1_logical")

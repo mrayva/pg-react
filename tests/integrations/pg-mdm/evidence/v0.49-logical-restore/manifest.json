@@ -20,5 +20,17 @@
       "result": "pg_dump and pg_restore succeeded; complete durable vectors differed because React work and attempts were absent"
     }
   ],
-  "release_qualified": false
+  "release_qualified": false,
+  "full_vectors": {
+    "exit": 1,
+    "result": "The source pg_react extension has no registered dump configuration; exact rule, rule-version, activation, event, work and attempt vectors are missing after successful restore.",
+    "raw_sha256": "cfbe6cf049c19e7123df71f7bc1676f51766a45a920c73b48ae6408a8d229713",
+    "regression_sha256": "3891c96042c006686c71de9b3378e8332b4f972830e9ebb2d80b00646e89142d"
+  },
+  "mapped_vectors": {
+    "exit": 1,
+    "result": "Restore lost rules, versions, activations, events, work and attempts; role and relation identities are compared by resolved names, not copied OIDs.",
+    "regression_sha256": "425238d7a2fa7acbb1aeebb509372ba38ffcf89953447970933de5cd19c3ef54",
+    "raw_sha256": "daab1454f4394ec99c4d8ab8395ae9a167c281a13205de7f5600160be5ee6b81"
+  }
 }
