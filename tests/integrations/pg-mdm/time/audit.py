@@ -19,9 +19,10 @@ def main():
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
     clean_clone = sys.argv[3:] == ["--clean-clone"]
+    direct_clone = sys.argv[3:] == ["--clean-clone-direct"]
     autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
     claimed_work = sys.argv[3:] == ["--claimed-work"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or clean_clone or autonomous_recurrence or claimed_work):
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or clean_clone or direct_clone or autonomous_recurrence or claimed_work):
         raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -362,7 +363,7 @@ def main():
         before = json.loads(sql(state_query))
         observations["pending_setup"] = {"cycle": result, "state": before}
         assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
-        if clean_clone:
+        if clean_clone or direct_clone:
             qualify_clean_clone(state_query, before)
             return
         qualify_recovery(state_query, pending=True)
@@ -381,7 +382,7 @@ def main():
         identity = json.loads(sql(identity_query))
         assert identity["react_runtime"] and identity["mdm_runtime"]
         assert sql("SHOW data_directory") == "/var/lib/postgresql/18/docker"
-        sql("ALTER SYSTEM SET pg_react.databases = 's1_idle'")
+        sql("ALTER SYSTEM SET pg_react.databases = " + ("''" if direct_clone else "'s1_idle'"))
         sql("ALTER SYSTEM SET pg_react.worker_role = 'mdm_s1_runtime'")
         command("docker", "stop", "-t", "60", original)
         try:
@@ -410,6 +411,30 @@ def main():
                 raise AssertionError("clean clone did not start")
             actual_identity = json.loads(sql(identity_query))
             assert actual_identity == identity, {"expected": identity, "actual": actual_identity}
+            if direct_clone:
+                assert json.loads(sql(state_query)) == before
+                pending_id = next(w["work_id"] for w in before["work"] if w["state"] == "PENDING")
+                case_key = int(sql("SELECT (new_bindings->>'case_key')::bigint FROM pgreact_internal.agenda "
+                                   "WHERE episode_id=" + str(int(pending_id))))
+                case = next(c for c in before["cases"] if c["case_key"] == case_key)
+                binding = next(b for b in identity["bindings"] if b["enabled"])
+                query = ("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; "
+                         "SELECT to_jsonb(r) FROM mdm_steward.submit_policy_intent("
+                         "'{}'::uuid,decode(repeat('f',64),'hex'),{},'ESCALATE','{{\"level\":2}}'::jsonb,"
+                         "{},{},{},{},decode('{}','hex'),{},decode('{}','hex'),'{}','clone-direct','clone-direct') r")
+                query = query.format(binding["binding_id"], case_key, case["review_version"],
+                                     case["definition_version"], case["publication_revision"],
+                                     case["stewardship_epoch"], case["evidence_basis_digest"][2:],
+                                     case["action_revision"], binding["policy_digest"][2:], binding["policy_revision"])
+                response = json.loads(sql(query))
+                after = json.loads(sql(state_query))
+                observations["clean_clone_direct"] = {"identity": actual_identity, "before": before,
+                                                       "response": response, "after": after}
+                assert response["outcome"] == "BINDING_PAUSED", response
+                assert after["cases"] == before["cases"] and after["work"] == before["work"]
+                assert all(receipt in after["receipts"] for receipt in before["receipts"])
+                observations["checks"].append({"name": "clean-clone-direct-delivery-blocked", "result": "passed"})
+                return
             postmaster_start = timestamp(json.loads(sql("SELECT to_json(pg_postmaster_start_time())")))
             end = time.monotonic() + 30
             while time.monotonic() < end:
@@ -881,7 +906,7 @@ def main():
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
             return
-        if clean_clone:
+        if clean_clone or direct_clone:
             observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
                 "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
                 "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()

@@ -35,5 +35,16 @@
   ],
   "earlier_runs": "Full bootstrap and four harness failures remain in the raw archive; they are not product-regression results.",
   "release_qualified": false,
-  "worker_cycle_regression_sha256": "9dcf489dc71894ac22e3e9096637da3efbc434102d59f270240e1f406ea962ec"
+  "worker_cycle_regression_sha256": "9dcf489dc71894ac22e3e9096637da3efbc434102d59f270240e1f406ea962ec",
+  "direct_mdm_runs": {
+    "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --clean-clone-direct",
+    "exit": 1,
+    "directories": [
+      "pgreact-direct-clone-20261027",
+      "pgreact-direct-clone-repeat-20261027"
+    ],
+    "result": "On the clean copied cluster with managed worker disabled, an authorized bound MDM caller submitted ESCALATE and received APPLIED_CONTROL before reconciliation.",
+    "regression_sha256": "e64a36c53e174bb9eccacf9137439d716f970315f1d527ccac9d1e3d462d1ed8",
+    "archive_sha256": "41233f57c54da7c5cfcaeab4de7f43cf310e57e0a0ebecb0db9c35f0a27952fa"
+  }
 }
