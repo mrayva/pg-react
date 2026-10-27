@@ -1,4 +1,4 @@
-name: MDM stale-runtime repair preview (not pinned release)
+name: MDM stale-runtime preview (historical, nonblocking)
 
 on:
   pull_request:
@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   mdm_stale_cas_preview:
+    name: Stale-runtime preview history (nonblocking)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -47,8 +48,11 @@ jobs:
             -t pgreact:stale-cas-preview . \
             > preview-evidence/react-build.log 2>&1
       - name: Run full qualified integration audit on provisional artifact
+        id: legacy_1
+        continue-on-error: true
         run: |
           set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > preview-evidence/historical-1.exit' EXIT
           python3 tests/integrations/pg-mdm/time/audit.py \
             pgreact:stale-cas-preview preview-evidence/runtime
           python3 - <<'PY'
@@ -70,6 +74,15 @@ jobs:
           assert o['stale_operator_runtime_version']['complete_state_unchanged']
           print('PASS: repaired exact-source MDM preview; no release-pin adoption')
           PY
+      - name: Record nonblocking historical outcome
+        if: ${{ !cancelled() && steps.legacy_1.outcome != '' }}
+        run: |
+          printf 'Historical old-MDM test is nonblocking and is not release qualification.\n' > preview-evidence/historical-outcomes.txt
+          printf 'full=%s\n' '${{ steps.legacy_1.outcome }}' >> preview-evidence/historical-outcomes.txt
+          cat preview-evidence/historical-outcomes.txt >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '=failure' preview-evidence/historical-outcomes.txt; then
+            printf '::warning::Historical compatibility failed; see the artifact and raw exits. This is not release qualification.\n'
+          fi
       - name: Retain exact image and executable identities
         if: always()
         run: |

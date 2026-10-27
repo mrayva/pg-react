@@ -1,0 +1,216 @@
+{
+  "react_source": "96e07090be0da636445b5a27fd8d5e39cc5476f1",
+  "react_source_archive_sha256": "3495001e6eb8a2eef4a6cfde0212e15884e646049170c0446579d5f7a094b716",
+  "mdm_source": "061705d17dae52697f6e7371b7840722a6ad4bde",
+  "mdm_source_archive_sha256": "cb536694ce8d4deb83c73c0184dbba66a1043218c604e769272bc4087f7fab97",
+  "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "pg_trickle_source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+  "image": "sha256:90559bc08fca7b5215a4d6830388c123ca626d5e43de8b2b81274a960c245c6e",
+  "image_architecture": "amd64 on aarch64 Docker Desktop; not performance qualification",
+  "libraries_sha256": {
+    "pg_mdm": "a3e1602c98ee30c1ee8246abb62c408ec9940070b0dfed0bfbef35e59000c875",
+    "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+    "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+  },
+  "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f",
+  "regression_sha256": "e16ff37e4bd4827098aa24eae3523a35fa44bceb3a25c46cf3e5c4692c5f5328",
+  "raw_archive_sha256": "cd35d08b4affcc7888bf3e97a144505aa62f48ba2b9fd45a5e889247bfcb5542",
+  "focused_command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --clean-clone",
+  "focused_runs": [
+    {
+      "directory": "pgreact-clean-clone-focused4-20261027",
+      "exit": 1,
+      "result": "copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    },
+    {
+      "directory": "pgreact-clean-clone-repeat-20261027",
+      "exit": 1,
+      "result": "independent repeat: copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    },
+    {
+      "directory": "pgreact-clean-clone-worker-check2-20261027",
+      "exit": 1,
+      "result": "independent repeat with later-worker-cycle assertion: copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    }
+  ],
+  "earlier_runs": "Full bootstrap and four harness failures remain in the raw archive; they are not product-regression results.",
+  "release_qualified": false,
+  "worker_cycle_regression_sha256": "9dcf489dc71894ac22e3e9096637da3efbc434102d59f270240e1f406ea962ec",
+  "direct_mdm_runs": {
+    "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --clean-clone-direct",
+    "exit": 1,
+    "directories": [
+      "pgreact-direct-clone-20261027",
+      "pgreact-direct-clone-repeat-20261027"
+    ],
+    "result": "On the clean copied cluster with managed worker disabled, an authorized bound MDM caller submitted ESCALATE and received APPLIED_CONTROL before reconciliation.",
+    "regression_sha256": "e64a36c53e174bb9eccacf9137439d716f970315f1d527ccac9d1e3d462d1ed8",
+    "archive_sha256": "41233f57c54da7c5cfcaeab4de7f43cf310e57e0a0ebecb0db9c35f0a27952fa"
+  },
+  "candidate_v4_prototype": {
+    "scope": "Dirty-source focused prototype, not exact-commit qualification",
+    "image": "sha256:b2763ff4f6e157a5e2fa28403d0a79fa70664a27c1e9a6ee6d348b1a48b5db42",
+    "image_mdm_label": "061705d17dae52697f6e7371b7840722a6ad4bde-dirty-epoch-v4",
+    "libraries_sha256": {
+      "pg_mdm": "ab699395507ba6458865f8a722167a0adf4356cc9962e73823eb0237b61002f4",
+      "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+      "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+    },
+    "runs": [
+      {
+        "path": "pgreact-clean-clone-activation-prototype-v4-20261027",
+        "exit": 0,
+        "result": "preactivation block, old receipt replay, authorization, stale version, unsupported producer settings and bounded pending resumption passed"
+      },
+      {
+        "path": "pgreact-clean-clone-activation-repeat-v4-20261027",
+        "exit": 0,
+        "result": "independent repeat passed"
+      },
+      {
+        "path": "pgreact-direct-no-receipt-after-v4-20261027",
+        "exit": 0,
+        "result": "direct MDM delivery rejected without durable changes"
+      },
+      {
+        "path": "pgreact-no-preload-rejection-20261027",
+        "exit": 1,
+        "result": "expected diagnostic: activation refused without preload"
+      },
+      {
+        "path": "pgreact-direct-no-receipt-before-20261027",
+        "exit": 1,
+        "result": "original MDM applied direct control before activation"
+      }
+    ],
+    "archive_sha256": "99c30271f07b96852551e1c50c952b47f09f239fdaf5f1806ad2efa0c5dbf698",
+    "release_qualified": false
+  },
+  "exact_441_and_upgrade_probe": {
+    "react_source": "44174e021a8a8718eccf8231a3ca354454202efb",
+    "react_archive_sha256": "34306a2901df6982ae6d7efcd44e46252b24a930e2462d219d9ed877163516f0",
+    "mdm_source": "74b5936d8cd6f1c21553913c3de2739eb20fb975",
+    "mdm_archive_sha256": "f69f35d82f98d8eba55394827c2c16f9a6930aa89c36afee0adce0866ae60e5e",
+    "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+    "pg_trickle_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+    "image": "sha256:fe76dc28c7c27bc7b60d4fdd6e887b2370c5329582de4cf4f699f5e95d1e42b3",
+    "libraries_sha256": {
+      "pg_mdm": "dbb24dd7ae0d0600d7b2a0cac03127446705128d72ad181b1418a0f769d2ba49",
+      "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+      "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+    },
+    "runs": [
+      {
+        "path": "pgreact-clean-clone-exact-441-first",
+        "exit": 0,
+        "result": "clean clone guarded, original receipt replayed, authorized reconciliation and bounded resumption passed"
+      },
+      {
+        "path": "pgreact-direct-exact-441-first",
+        "exit": 0,
+        "result": "direct MDM request rejected without changing durable vectors"
+      },
+      {
+        "path": "pgreact-mdm-populated-adjacent-upgrade-probe",
+        "exit": 0,
+        "result": "populated 0.14.1 to 0.14.2 upgrade and pending resumption probe"
+      },
+      {
+        "path": "pgreact-mdm-populated-upgrade-reject-probe",
+        "exit": 0,
+        "result": "same probe with explicit preactivation request rejection"
+      },
+      {
+        "path": "pgreact-mdm-populated-upgrade-rollback-probe",
+        "exit": 0,
+        "result": "same probe with forced division-by-zero rollback exit 1, unchanged predecessor, retry and resumption"
+      }
+    ],
+    "upgrade_source": "React 96e07090be0da636445b5a27fd8d5e39cc5476f1 and MDM 061705d17dae52697f6e7371b7840722a6ad4bde; copied physical database upgraded with the target image; source React SQL remains installed.",
+    "scope": "Focused amd64-emulated local evidence only; subsequent commits and native CI require their own artifact evidence.",
+    "archive_sha256": "0ee8d829e0955da3bf4f6e01cb73c1185bb6088d6eca2cb14baff2fdf4bce9ae",
+    "release_qualified": false
+  },
+  "autonomous_epoch_probes": {
+    "scope": "Dirty React test-source against committed 44174e0/74b5936 local image; not exact-current or release qualification",
+    "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-exact-441 OUTPUT --autonomous-recurrence",
+    "runs": [
+      {
+        "path": "pgreact-autonomous-epoch-candidate-20261027",
+        "exit": 1,
+        "result": "test harness failed parsing a five-digit fractional timestamp after real first delivery"
+      },
+      {
+        "path": "pgreact-autonomous-epoch-candidate-retry-20261027",
+        "exit": 0,
+        "result": "autonomous recurrence, explicit post-restart reconciliation and no replay passed after parser correction"
+      },
+      {
+        "path": "pgreact-autonomous-epoch-candidate-repeat-20261027",
+        "exit": 0,
+        "result": "independent corrected repeat passed"
+      }
+    ],
+    "archive_sha256": "18491ab706452312a36cef8c15b3c5e9aa315132d144babadbad3692a415ea6d",
+    "release_qualified": false
+  },
+  "binding_recheck_and_upgrade": {
+    "scope": "Focused local dirty-source adapter and test probes, not exact-current artifact or release qualification; amd64 emulated on aarch64",
+    "base_react_source": "6592f8a1e830bf3026afc886864c3995daa8ed36",
+    "image_react_source": "44174e021a8a8718eccf8231a3ca354454202efb",
+    "mdm_source": "74b5936d8cd6f1c21553913c3de2739eb20fb975",
+    "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+    "image_after": "sha256:70f971d557ad5b33058fab7a80fa5f0f34ae24831dff3141de87f5201b5b59ed",
+    "image_before": "sha256:fe76dc28c7c27bc7b60d4fdd6e887b2370c5329582de4cf4f699f5e95d1e42b3",
+    "libraries_sha256": {
+      "pg_mdm": "dbb24dd7ae0d0600d7b2a0cac03127446705128d72ad181b1418a0f769d2ba49",
+      "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+      "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+    },
+    "before_adapter_sha256": "a17525f1520caff3926f78f7c6da98dabbd4045b535135a7c81e6b7e4df78299",
+    "after_adapter_sha256": "1370ffc05c07d86d0550055600d655a65e1454bd95616c68282898ac3877b78f",
+    "audit_sha256": "77070b19486c1774f4cf8bb46cbbd050ca8d74a09d7c2c1670470ce5f5420a08",
+    "upgrade_audit_sha256": "d82bd74c2801451cb39f96e3b1504f6afe32fc006be79bff124da5ff748a753b",
+    "command": "python3 tests/integrations/pg-mdm/time/audit.py IMAGE OUTPUT --clean-clone",
+    "runs": [
+      {
+        "path": "binding-before",
+        "exit": 1,
+        "result": "Mismatched max escalation level unexpectedly activated; returned runtime version 3; transaction rolled back"
+      },
+      {
+        "path": "binding-after-first",
+        "exit": 0,
+        "result": "Mismatch rejected; complete preactivation history retained; authorized bounded resumption"
+      },
+      {
+        "path": "binding-after-repeat",
+        "exit": 0,
+        "result": "Independent repeat passed"
+      },
+      {
+        "path": "upgrade-full-identities",
+        "exit": 0,
+        "result": "Populated 0.14.1 to 0.14.2 probe with forced rollback, preactivation rejection, exact occurrence identity and hold preservation, and resumption"
+      },
+      {
+        "path": "claimed-final",
+        "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-binding-prototype OUTPUT --claimed-work",
+        "exit": 0,
+        "result": "Claimed-work pause orders, human edits, replacement, fresh resumption and cross-key uniqueness passed"
+      },
+      {
+        "path": "autonomous-final",
+        "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-binding-prototype OUTPUT --autonomous-recurrence",
+        "exit": 0,
+        "result": "Autonomous recurrence, control and receipt vectors, cold restart and reconciliation passed"
+      }
+    ],
+    "initial_sandbox_attempt": {
+      "exit": 1,
+      "result": "Docker socket permission denied before PostgreSQL started; retried with host execution"
+    },
+    "archive_sha256": "f71894ad0c77631a2af4d05665584a5f1e86da6c847646db25b60add1becfbe0",
+    "release_qualified": false
+  }
+}

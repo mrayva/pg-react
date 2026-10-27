@@ -1,0 +1,96 @@
+name: MDM clone activation candidate (not release qualification)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clone_activation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: trickle-labs/pg-mdm
+          ref: e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043
+          path: .producer/mdm
+      - name: Record source and profile identity
+        run: |
+          set -euo pipefail
+          mkdir -p clone-evidence
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043"
+          git rev-parse HEAD > clone-evidence/react-source.txt
+          git -C .producer/mdm rev-parse HEAD > clone-evidence/mdm-source.txt
+          git archive --format=tar HEAD | sha256sum > clone-evidence/react-archive-sha256.txt
+          (cd .producer/mdm && git archive --format=tar HEAD) | sha256sum > clone-evidence/mdm-archive-sha256.txt
+          sha256sum tests/integrations/pg-mdm/time/audit.py tests/integrations/pg-mdm/time/autonomous_recurrence.py \
+            integrations/pg-mdm/sql/intent-worker.sql \
+            sql/current/pgtrickle.sql plans/v0.49-qualification-profile.json > clone-evidence/source-sha256.txt
+      - name: Build exact candidate stack
+        run: |
+          set -euo pipefail
+          docker build -f .producer/mdm/tests/Dockerfile.e2e \
+            --build-arg PG_MDM_SOURCE_REVISION=e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043 \
+            --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --label pg_trickle.source_archive_sha256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            -t pgreact:mdm-clone-candidate .producer/mdm > clone-evidence/mdm-build.log 2>&1
+          docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
+            --build-arg PG_MDM_IMAGE=pgreact:mdm-clone-candidate \
+            -t pgreact:clone-candidate . > clone-evidence/react-build.log 2>&1
+      - name: Record image and packaged libraries
+        run: |
+          set -euo pipefail
+          docker image inspect pgreact:mdm-clone-candidate pgreact:clone-candidate > clone-evidence/images.json
+          docker run --rm --entrypoint sha256sum pgreact:mdm-clone-candidate \
+            /usr/lib/postgresql/18/lib/pg_mdm.so /usr/lib/postgresql/18/lib/pg_trickle.so > clone-evidence/mdm-libraries.txt
+          docker run --rm --entrypoint sha256sum pgreact:clone-candidate \
+            /usr/lib/postgresql/18/lib/pg_mdm.so /usr/lib/postgresql/18/lib/pg_trickle.so > clone-evidence/joint-libraries.txt
+          cmp clone-evidence/mdm-libraries.txt clone-evidence/joint-libraries.txt
+          docker run --rm --entrypoint sha256sum pgreact:clone-candidate \
+            /usr/lib/postgresql/18/lib/pg_react.so > clone-evidence/react-library.txt
+      - name: Repeat physical clone, direct delivery, claimed-work and recurrence tests
+        run: |
+          set +e
+          set -uo pipefail
+          status=0
+          for mode in clean-clone clean-clone-direct claimed-work autonomous-recurrence; do
+            for run in first repeat; do
+              command=(python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-candidate "clone-evidence/$mode-$run" "--$mode")
+              printf '%q ' "${command[@]}" > "clone-evidence/$mode-$run.command"
+              printf '\n' >> "clone-evidence/$mode-$run.command"
+              "${command[@]}" > "clone-evidence/$mode-$run.log" 2>&1
+              result=$?
+              printf '%s\n' "$result" > "clone-evidence/$mode-$run.exit"
+              if [ "$result" -ne 0 ]; then
+                status=1
+              else
+                python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); mode=sys.argv[2]; passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; required={"clean-clone":{"clean-clone-preactivation","pending-recovery-s1_idle-5432"},"clean-clone-direct":{"clean-clone-direct-delivery-blocked"},"claimed-work":{"claimed-pause-barrier","pause-first-runtime-freshness","paused-before-claim","human-edit-claim-orders","binding-replacement-claim-orders","fresh-after-terminal-pause","cross-key-after-human-reduction"},"autonomous-recurrence":{"autonomous-recurrence"}}[mode]; assert required <= passed, o.get("failure"); assert mode != "clean-clone" or o["entry_decision"]=="FOCUSED_CLEAN_CLONE_RECOVERY_QUALIFIED"; assert mode != "claimed-work" or (o["entry_decision"]=="FOCUSED_CLAIMED_PAUSE_QUALIFIED" and not o["claimed_pause"]["pause_acknowledged_before_delivery_release"]); assert mode != "autonomous-recurrence" or (o["entry_decision"]=="FOCUSED_AUTONOMOUS_RECURRENCE_QUALIFIED" and o["autonomous_recurrence"]["old_receipts_unchanged"] and o["autonomous_recurrence"]["no_replay_across_cycles_and_restart"])' "clone-evidence/$mode-$run/observations.json" "$mode" > "clone-evidence/$mode-$run.validation.log" 2>&1
+                validation=$?
+                printf '%s\n' "$validation" > "clone-evidence/$mode-$run.validation.exit"
+                if [ "$validation" -ne 0 ]; then status=1; fi
+              fi
+            done
+          done
+          exit "$status"
+      - name: Run full joint audit on the activation candidate
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          set -uo pipefail
+          command=(python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-candidate clone-evidence/full)
+          printf '%q ' "${command[@]}" > clone-evidence/full.command
+          printf '\n' >> clone-evidence/full.command
+          "${command[@]}" > clone-evidence/full.log 2>&1
+          result=$?
+          printf '%s\n' "$result" > clone-evidence/full.exit
+          exit "$result"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mdm-clone-activation-candidate-evidence
+          path: clone-evidence/

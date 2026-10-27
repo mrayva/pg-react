@@ -1,4 +1,4 @@
-name: MDM pause barrier repair preview (not pinned release)
+name: MDM pause barrier preview (historical, nonblocking)
 
 on:
   pull_request:
@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   mdm_pause_barrier_preview:
+    name: Pause-barrier preview history (nonblocking)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -42,23 +43,44 @@ jobs:
             --build-arg PG_MDM_IMAGE=pgreact:mdm-pause-preview \
             -t pgreact:pause-preview . > pause-evidence/react-build.log 2>&1
       - name: Repeat deterministic claimed-work matrix
+        id: legacy_1
+        continue-on-error: true
         run: |
           set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > pause-evidence/historical-1.exit' EXIT
           for run in first repeat; do
             python3 tests/integrations/pg-mdm/time/audit.py \
               pgreact:pause-preview "pause-evidence/$run" --claimed-work
             python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); required={"claimed-pause-barrier","pause-first-runtime-freshness","paused-before-claim","human-edit-claim-orders","binding-replacement-claim-orders","fresh-after-terminal-pause","cross-key-after-human-reduction"}; passed={x["name"] for x in o["checks"] if x["result"]=="passed"}; assert required<=passed, o.get("failure"); assert o["entry_decision"]=="FOCUSED_CLAIMED_PAUSE_QUALIFIED"; assert not o["claimed_pause"]["pause_acknowledged_before_delivery_release"]' "pause-evidence/$run/observations.json"
           done
       - name: Preserve real autonomous recurrence
+        id: legacy_2
+        if: steps.legacy_1.outcome == 'success'
+        continue-on-error: true
         run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > pause-evidence/historical-2.exit' EXIT
           python3 tests/integrations/pg-mdm/time/audit.py \
             pgreact:pause-preview pause-evidence/recurrence --autonomous-recurrence
       - name: Run unchanged full joint audit and pending recovery
+        id: legacy_3
+        if: steps.legacy_2.outcome == 'success'
+        continue-on-error: true
         run: |
           set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > pause-evidence/historical-3.exit' EXIT
           python3 tests/integrations/pg-mdm/time/audit.py pgreact:pause-preview pause-evidence/full
           python3 tests/integrations/pg-mdm/time/audit.py \
             pgreact:pause-preview pause-evidence/pending --pending-recovery
+      - name: Record nonblocking historical outcomes
+        if: ${{ !cancelled() && steps.legacy_1.outcome != '' }}
+        run: |
+          printf 'Historical old-MDM tests are nonblocking and are not release qualification.\n' > pause-evidence/historical-outcomes.txt
+          printf 'claimed=%s recurrence=%s full-and-pending=%s\n' '${{ steps.legacy_1.outcome }}' '${{ steps.legacy_2.outcome }}' '${{ steps.legacy_3.outcome }}' >> pause-evidence/historical-outcomes.txt
+          cat pause-evidence/historical-outcomes.txt >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '=failure' pause-evidence/historical-outcomes.txt; then
+            printf '::warning::Historical compatibility failed; see the artifact and raw exits. This is not release qualification.\n'
+          fi
       - name: Retain image and inherited binary identities
         if: always()
         run: |

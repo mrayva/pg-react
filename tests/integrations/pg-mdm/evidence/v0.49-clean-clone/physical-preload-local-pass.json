@@ -1,0 +1,13 @@
+{
+  "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr29-labelled-local OUTPUT",
+  "react_git_revision_at_start": "94a1553e4fcb413787db90da0eb77dcc8ea59df2",
+  "audit_sha256": "1f4698a15a6145629956837e54c771a2a16a4cf5c1cd5b2504de1db288ff3f27",
+  "image": "sha256:0f68e5112d2c734db10303658010086ebfa071c00ef61db3b23c7e040102e530",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_source": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+  "pg_trickle_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+  "exit": 0,
+  "result": "Full diagnostic including explicit restart reconciliations, human edits, recurrence, pause and physical restore guard/reconcile/replay passed; entry decision QUALIFICATION_INCOMPLETE.",
+  "scope": "Dirty test source at start, amd64 emulated on aarch64, producer differs from release pin; not current-artifact or release qualification.",
+  "archive_sha256": "d664ddb629b56f1c67041fc73f01dc614f47d814b3f2c72f8e51207c6d902072"
+}
