@@ -46,5 +46,44 @@
     "result": "On the clean copied cluster with managed worker disabled, an authorized bound MDM caller submitted ESCALATE and received APPLIED_CONTROL before reconciliation.",
     "regression_sha256": "e64a36c53e174bb9eccacf9137439d716f970315f1d527ccac9d1e3d462d1ed8",
     "archive_sha256": "41233f57c54da7c5cfcaeab4de7f43cf310e57e0a0ebecb0db9c35f0a27952fa"
+  },
+  "candidate_v4_prototype": {
+    "scope": "Dirty-source focused prototype, not exact-commit qualification",
+    "image": "sha256:b2763ff4f6e157a5e2fa28403d0a79fa70664a27c1e9a6ee6d348b1a48b5db42",
+    "image_mdm_label": "061705d17dae52697f6e7371b7840722a6ad4bde-dirty-epoch-v4",
+    "libraries_sha256": {
+      "pg_mdm": "ab699395507ba6458865f8a722167a0adf4356cc9962e73823eb0237b61002f4",
+      "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+      "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+    },
+    "runs": [
+      {
+        "path": "pgreact-clean-clone-activation-prototype-v4-20261027",
+        "exit": 0,
+        "result": "preactivation block, old receipt replay, authorization, stale version, unsupported producer settings and bounded pending resumption passed"
+      },
+      {
+        "path": "pgreact-clean-clone-activation-repeat-v4-20261027",
+        "exit": 0,
+        "result": "independent repeat passed"
+      },
+      {
+        "path": "pgreact-direct-no-receipt-after-v4-20261027",
+        "exit": 0,
+        "result": "direct MDM delivery rejected without durable changes"
+      },
+      {
+        "path": "pgreact-no-preload-rejection-20261027",
+        "exit": 1,
+        "result": "expected diagnostic: activation refused without preload"
+      },
+      {
+        "path": "pgreact-direct-no-receipt-before-20261027",
+        "exit": 1,
+        "result": "original MDM applied direct control before activation"
+      }
+    ],
+    "archive_sha256": "99c30271f07b96852551e1c50c952b47f09f239fdaf5f1806ad2efa0c5dbf698",
+    "release_qualified": false
   }
 }
