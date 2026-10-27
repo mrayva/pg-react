@@ -15,13 +15,13 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: trickle-labs/pg-mdm
-          ref: 74b5936d8cd6f1c21553913c3de2739eb20fb975
+          ref: e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043
           path: .producer/mdm
       - name: Record source and profile identity
         run: |
           set -euo pipefail
           mkdir -p clone-evidence
-          test "$(git -C .producer/mdm rev-parse HEAD)" = "74b5936d8cd6f1c21553913c3de2739eb20fb975"
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043"
           git rev-parse HEAD > clone-evidence/react-source.txt
           git -C .producer/mdm rev-parse HEAD > clone-evidence/mdm-source.txt
           git archive --format=tar HEAD | sha256sum > clone-evidence/react-archive-sha256.txt
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           docker build -f .producer/mdm/tests/Dockerfile.e2e \
-            --build-arg PG_MDM_SOURCE_REVISION=74b5936d8cd6f1c21553913c3de2739eb20fb975 \
+            --build-arg PG_MDM_SOURCE_REVISION=e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043 \
             --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
             --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
             --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
@@ -76,6 +76,17 @@ jobs:
             done
           done
           exit "$status"
+      - name: Run full joint audit on the activation candidate
+        if: ${{ !cancelled() }}
+        run: |
+          set -uo pipefail
+          command=(python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-candidate clone-evidence/full)
+          printf '%q ' "${command[@]}" > clone-evidence/full.command
+          printf '\n' >> clone-evidence/full.command
+          "${command[@]}" > clone-evidence/full.log 2>&1
+          result=$?
+          printf '%s\n' "$result" > clone-evidence/full.exit
+          exit "$result"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

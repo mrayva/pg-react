@@ -1,0 +1,10 @@
+{
+  "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-binding-prototype OUTPUT",
+  "exit": 1,
+  "react_base": "00b9a2dfbc10866d448333581eee7c38508d1078",
+  "mdm_source": "74b5936d8cd6f1c21553913c3de2739eb20fb975",
+  "image": "sha256:70f971d557ad5b33058fab7a80fa5f0f34ae24831dff3141de87f5201b5b59ed",
+  "scope": "Dirty test-source with required pg_mdm preload; amd64 emulated on aarch64; another image build was running concurrently. Not qualification.",
+  "failure": "PostgreSQL connection lost during MDM e2e.sql; cause not established.",
+  "archive_sha256": "520b595b0a3df8d9189a38109610e2b09ee61b6b5f05d4d54342c021f1e873aa"
+}

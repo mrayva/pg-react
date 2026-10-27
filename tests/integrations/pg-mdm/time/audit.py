@@ -942,8 +942,7 @@ def main():
             "docker", "info", "--format", "{{.Architecture}} {{.NCPU}} {{.MemTotal}}").strip()
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
-                image, "postgres", "-c", "shared_preload_libraries=" +
-                ("pg_trickle,pg_mdm,pg_react" if clean_clone or direct_clone or autonomous_recurrence or claimed_work else "pg_trickle,pg_react"),
+                image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_mdm,pg_react",
                 "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
