@@ -1,0 +1,26 @@
+{
+  "react_base": "f19397a6a96ea563dd0b63ac556031a98aca47c7",
+  "react_pre_merge_head": "9d5d046d579e86f2acd6ffebac3febbdba426004",
+  "scope": "Dirty conflict-resolution source; local amd64-emulated image with a non-pinned producer. Not qualification.",
+  "image": "sha256:0f68e5112d2c734db10303658010086ebfa071c00ef61db3b23c7e040102e530",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_source": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+  "pg_trickle_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+  "runs": [
+    {
+      "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr29-labelled-local OUTPUT",
+      "exit": 130,
+      "result": "Wrong mode invoked and interrupted before test output"
+    },
+    {
+      "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr29-labelled-local OUTPUT --logical-restore",
+      "exit": 1,
+      "result": "Fixture refresh failed with permission denied for pgtrickle.pgt_dependencies before dump; logical regression not reached"
+    }
+  ],
+  "archive_sha256": "bc0872762d1109be42b40608f9537647cbd337ef35c3bcd8f90aff31e36076b1",
+  "pinned_image_build": {
+    "exit": 130,
+    "result": "Cancelled during toolchain compilation after the conflict regression was verified on a separately identified diagnostic image; exact pinned image not built."
+  }
+}
