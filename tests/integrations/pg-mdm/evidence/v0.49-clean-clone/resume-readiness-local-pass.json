@@ -1,0 +1,13 @@
+{
+  "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr29-labelled-local OUTPUT",
+  "react_test_revision": "83209c211393326f01eacc180781e1146bc728da",
+  "audit_sha256": "37f456b4d68afd51ed3f744962ac3f78b5e4fb3994515cfdb17b711dc6101f52",
+  "image": "sha256:0f68e5112d2c734db10303658010086ebfa071c00ef61db3b23c7e040102e530",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_source": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+  "pg_trickle_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+  "exit": 0,
+  "result": "Full local diagnostic passed after wait fix, including pause-resume and physical restore/reconcile/replay; decision QUALIFICATION_INCOMPLETE.",
+  "scope": "amd64 emulated on aarch64; image predates test revision and producer differs from release pin; not exact-current artifact or release qualification.",
+  "archive_sha256": "5430cbee62f42df60fcc0397a9e56ee9dbef62a1a80f77b9b870f60c235a5321"
+}
