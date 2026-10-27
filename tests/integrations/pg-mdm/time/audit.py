@@ -2502,9 +2502,19 @@ def main():
         assert any(r["binding_id"] == resumed["binding_id"]
                    and r["runtime_version"] == resumed["reactivated_runtime_version"]
                    for r in resumed_runtime_before["runtime"]), resumed_runtime_before
-        resumed_worker = json.loads(sql("SELECT pgreact_api.managed_status()"))
-        process = resumed_worker.get("process") or {}
-        assert process.get("state") == "ready" and process.get("heartbeat_at"), resumed_worker
+        until = time.monotonic() + 30
+        while time.monotonic() < until:
+            resumed_worker = json.loads(sql("SELECT pgreact_api.managed_status()"))
+            process = resumed_worker.get("process") or {}
+            if process.get("state") == "ready" and process.get("heartbeat_at"):
+                break
+            if process.get("state") == "error" and process.get("detail") != "MDM activation required":
+                raise AssertionError(resumed_worker)
+            time.sleep(0.2)
+        else:
+            raise AssertionError({"error": "managed worker did not resume after binding reconciliation",
+                                  "status": resumed_worker})
+        assert json.loads(sql(quiescence_sql)) == resumed_quiet_before
         start_heartbeat = timestamp(process["heartbeat_at"])
         until = time.monotonic() + 35
         while time.monotonic() < until:

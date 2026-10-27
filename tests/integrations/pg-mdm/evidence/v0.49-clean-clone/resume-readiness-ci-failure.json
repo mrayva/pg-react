@@ -1,0 +1,14 @@
+{
+  "workflow": "https://github.com/trickle-labs/pg-react/actions/runs/40523163879",
+  "pr_head": "c39d378b176f07046e8efe7cc06fd4faf0725011",
+  "tested_merge": "5d36034034595f59abf49875205569f5f6d8653e",
+  "audit_sha256": "1f4698a15a6145629956837e54c771a2a16a4cf5c1cd5b2504de1db288ff3f27",
+  "mdm": "e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043",
+  "pg_trickle": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "image": "sha256:90c1ee1599d32497c3759279a390698891d99e6f4dc64651fc879df5cdc64c15",
+  "full_exit": 1,
+  "failure": "After authorized reconciliation, full audit immediately expected ready while last managed status still reported activation required; retained case, request and receipt observations are in the archive.",
+  "focused": "Clone, direct delivery, claimed-work and recurrence modes and validations passed twice each.",
+  "archive_sha256": "a4253737b60de3009e5db5c7e01a475063946fb0fcacd645971b48f2aa8bb9ce",
+  "release_qualified": false
+}
