@@ -1,0 +1,8 @@
+{
+  "react_revision_at_start": "74c2bfab444fd4da5df8a55f562d5bdc25ceaf22",
+  "scope": "Local dirty and changing test source on amd64 emulation, producer d8bb8eb5d45c5c9982e173e88914037433a1ee05; not exact-current artifact qualification.",
+  "audit_sha_recorded_at_start": "2c82f412f9a6ccb628e383cf9ec5350e23e0e3b9c065b80869e1b8a1a33799ea",
+  "exit": 1,
+  "result": "Passed post-delivery restart and worker role rejection; direct human cross-key request rejected because the later rejected-worker restart also invalidated activation.",
+  "archive_sha256": "acf1263bec5bc01ebfcb0fd735a6a22d001af7c08c3956a8d85a8b26b8476bec"
+}

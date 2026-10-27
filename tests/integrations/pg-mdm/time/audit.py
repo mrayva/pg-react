@@ -1555,20 +1555,24 @@ def main():
             "'technical_source',(SELECT COALESCE(jsonb_agg(to_jsonb(s) ORDER BY case_key),'[]') "
             "FROM s1_audit.source s))"
         )
-        def activate_after_restart(name, expected):
+        def activate_after_restart(name, expected, expect_worker=True):
             command("docker", "exec", container, "sh", "-c",
                     "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
             if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NULL") == "t":
                 return
-            end = time.monotonic() + 30
-            while time.monotonic() < end:
-                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
-                process = status.get("process") or {}
-                if process.get("state") == "error" and process.get("detail") == "MDM activation required":
-                    break
-                time.sleep(0.2)
+            if expect_worker:
+                end = time.monotonic() + 30
+                while time.monotonic() < end:
+                    status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                    process = status.get("process") or {}
+                    if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                        break
+                    time.sleep(0.2)
+                else:
+                    raise AssertionError("managed worker did not block for " + name)
             else:
-                raise AssertionError("managed worker did not block for " + name)
+                assert sql("SELECT pgreact_mdm.policy_runtime_ready()") == "f"
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
             assert json.loads(sql(quiescence_sql)) == expected
             runtime = json.loads(sql("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
                 "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
@@ -1739,6 +1743,7 @@ def main():
                             managed_status=json.loads(sql("SELECT pgreact_api.managed_status()")),
                             deadline_history=json.loads(sql("SELECT pgreact_api.deadline_history('s1-future-idle')")))
         observations["checks"].append({"name": "future-idle-mdm-receipt", "result": "passed"})
+        activate_after_restart("after_rejected_worker", json.loads(sql(quiescence_sql)), expect_worker=False)
         # Separate authority-level regression after the proven worker delivery,
         # restart and privilege tests. This intentionally changes only the
         # MDM case via its authorized human API, then sends two *new* keys
