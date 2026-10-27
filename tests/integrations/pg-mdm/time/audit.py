@@ -145,6 +145,7 @@ def main():
         command("docker", "exec", "--user", "postgres", container,
                 "pg_ctl", "-D", "/tmp/s1-recovered", "-l", "/tmp/s1-recovered.log",
                 "-o", "-p 55432 -k /var/run/postgresql -c pg_react.databases= -c pg_react.batch_size=1 "
+                "-c shared_preload_libraries=pg_trickle,pg_mdm,pg_react "
                 "-c pg_react.poll_interval_ms=1000 -c pg_trickle.enabled=off "
                 "-c pg_trickle.cdc_mode=trigger -c pg_trickle.differential_max_change_ratio=1.0 "
                 "-c default_transaction_isolation='read committed'", "-w", "start")
