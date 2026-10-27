@@ -1,0 +1,24 @@
+{
+  "react_source": "96e07090be0da636445b5a27fd8d5e39cc5476f1",
+  "mdm_source": "061705d17dae52697f6e7371b7840722a6ad4bde",
+  "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "pg_trickle_source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+  "image": "sha256:90559bc08fca7b5215a4d6830388c123ca626d5e43de8b2b81274a960c245c6e",
+  "architecture": "amd64 emulated on aarch64; not performance evidence",
+  "regression_sha256": "9894ff77ca875c1f622c2a7d629da7ac91c408ed71d9bd97ffe9a5c2b34d4970",
+  "raw_sha256": "9a8fd12182624e11708f56f353bd3663d81531c09a3f1f17643f9f547d2412e9",
+  "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --logical-restore",
+  "runs": [
+    {
+      "path": "pgreact-logical-restore-baseline-20261027",
+      "exit": 1,
+      "result": "pg_dump and pg_restore succeeded; complete durable vectors differed because React work and attempts were absent"
+    },
+    {
+      "path": "pgreact-logical-isolated-baseline-20261027",
+      "exit": 1,
+      "result": "pg_dump and pg_restore succeeded; complete durable vectors differed because React work and attempts were absent"
+    }
+  ],
+  "release_qualified": false
+}

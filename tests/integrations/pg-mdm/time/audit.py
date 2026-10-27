@@ -18,9 +18,10 @@ def main():
     outage_mode = sys.argv[3:] == ["--outage"]
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
+    logical_restore = sys.argv[3:] == ["--logical-restore"]
     autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
     claimed_work = sys.argv[3:] == ["--claimed-work"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence or claimed_work):
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or logical_restore or autonomous_recurrence or claimed_work):
         raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -360,8 +361,31 @@ def main():
         before = json.loads(sql(state_query))
         observations["pending_setup"] = {"cycle": result, "state": before}
         assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
+        if logical_restore:
+            qualify_logical_restore(state_query, before)
+            return
         qualify_recovery(state_query, pending=True)
         observations["entry_decision"] = "FOCUSED_PENDING_RECOVERY_QUALIFIED"
+
+    def qualify_logical_restore(state_query, before):
+        command("docker", "exec", container, "pg_dump", "-Fc", "-U", "postgres", "-d", "s1_idle",
+                "-f", "/tmp/s1-logical.dump")
+        command("docker", "exec", container, "createdb", "-U", "postgres", "s1_logical")
+        try:
+            result = command("docker", "exec", container, "pg_restore", "--exit-on-error", "-U", "postgres",
+                             "-d", "s1_logical", "/tmp/s1-logical.dump")
+        except RuntimeError as error:
+            (output / "logical-restore.log").write_text(str(error))
+            observations["checks"].append({"name": "logical-restore", "result": "failed"})
+            raise
+        (output / "logical-restore.log").write_text(result)
+        after = json.loads(sql(state_query, "s1_logical"))
+        observations["logical_restore"] = {"before": before, "after": after,
+            "source_database_oid": sql("SELECT oid FROM pg_database WHERE datname=current_database()"),
+            "restored_database_oid": sql("SELECT oid FROM pg_database WHERE datname=current_database()", "s1_logical")}
+        assert after == before, "logical restore did not preserve the complete recovery state"
+        assert sql("SELECT NOT EXISTS (SELECT 1 FROM pgreact_mdm.authorized_policy_cases_v1)", "s1_logical") == "t"
+        observations["checks"].append({"name": "logical-restore-preactivation", "result": "passed"})
 
     def qualify_two_case_outage(before, source, temporal_source):
         # This bounded fixture intentionally exercises two distinct, real MDM
@@ -810,6 +834,23 @@ def main():
         print("PASS: fresh/adjacent-upgrade compatibility and callable privileges", flush=True)
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
+            return
+        if logical_restore:
+            observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
+                "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
+                "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()
+            fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
+            sql("INSERT INTO public.policy_qualification_source VALUES "
+                "(5,'Clone One','clone-one@example.test',statement_timestamp()),"
+                "(6,'Clone One','clone-pair@example.test',statement_timestamp()),"
+                "(7,'Clone Two','clone-two@example.test',statement_timestamp()),"
+                "(8,'Clone Two','clone-pair@example.test',statement_timestamp())")
+            sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT mdm.refresh('policy_qualification','ALLOW')")
+            assert sql("SELECT count(*) FROM mdm_steward.policy_cases_v1 WHERE status='open'") == "2"
+            fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
+                    ("-v", "multi=true", "-v", "VERBOSITY=verbose"))
+            qualify_pending_recovery()
             return
         if autonomous_recurrence or claimed_work:
             if claimed_work:
