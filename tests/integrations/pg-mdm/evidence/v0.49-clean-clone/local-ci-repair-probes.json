@@ -1,0 +1,25 @@
+{
+  "react_test_source": "74c2bfab444fd4da5df8a55f562d5bdc25ceaf22",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_source": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+  "pg_trickle_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+  "scope": "Local amd64-emulated diagnostic; producer differs from release pin, not qualification.",
+  "runs": [
+    {
+      "path": "core-without-mdm",
+      "exit": 0,
+      "result": "compatibility and populated core upgrade passed with pg_mdm.so removed"
+    },
+    {
+      "path": "full-unlabelled",
+      "exit": 1,
+      "result": "MDM fixture failed on missing producer checksum variable because local image lacked source label"
+    },
+    {
+      "path": "full-labelled",
+      "exit": 1,
+      "result": "Full audit passed initial restart and delivery then failed parsing PostgreSQL timestamp on Python 3.9"
+    }
+  ],
+  "archive_sha256": "a39be1bc1cae826a8e09f9c95ab0400be1df2cc55e78b3c80902810cad587ea0"
+}

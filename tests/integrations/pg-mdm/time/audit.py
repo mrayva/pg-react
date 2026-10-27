@@ -50,11 +50,19 @@ def main():
                        "-v", "ON_ERROR_STOP=1", "-c", query).strip()
 
     def timestamp(value):
+        value = value.replace(" ", "T", 1)
+        if len(value) >= 3 and value[-3] in "+-" and value[-2:].isdigit():
+            value += ":00"
         try:
             return datetime.datetime.fromisoformat(value)
         except ValueError:
             layout = "%Y-%m-%dT%H:%M:%S.%f%z" if "." in value else "%Y-%m-%dT%H:%M:%S%z"
             return datetime.datetime.strptime(value, layout)
+
+    assert timestamp("2026-10-27 14:15:28.957184+00") == datetime.datetime(
+        2026, 10, 27, 14, 15, 28, 957184, tzinfo=datetime.timezone.utc)
+    assert timestamp("2026-10-27T09:24:55.69977+00:00") == datetime.datetime(
+        2026, 10, 27, 9, 24, 55, 699770, tzinfo=datetime.timezone.utc)
 
     def fixture(name, file, database="foundation", variables=()):
         started = time.monotonic()
@@ -1547,6 +1555,31 @@ def main():
             "'technical_source',(SELECT COALESCE(jsonb_agg(to_jsonb(s) ORDER BY case_key),'[]') "
             "FROM s1_audit.source s))"
         )
+        def activate_after_restart(name, expected):
+            command("docker", "exec", container, "sh", "-c",
+                    "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
+            if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NULL") == "t":
+                return
+            end = time.monotonic() + 30
+            while time.monotonic() < end:
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                process = status.get("process") or {}
+                if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("managed worker did not block for " + name)
+            assert json.loads(sql(quiescence_sql)) == expected
+            runtime = json.loads(sql("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
+                "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+                "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility' AND r.state='active'"))
+            version = int(sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                    runtime["binding_id"], runtime["runtime_version"])))
+            assert version == runtime["runtime_version"] + 1
+            observations.setdefault("restart_activations", {})[name] = {
+                "blocked_status": status, "runtime_before": runtime, "runtime_after": version}
+
         quiescence_before = json.loads(sql(quiescence_sql))
         saved_requests = [
             row for row in quiescence_before["intent_requests"]
@@ -1595,6 +1628,7 @@ def main():
         before_restart_state = quiescence_after
         before_restart_heartbeat = timestamp(later_status["process"]["heartbeat_at"])
         command("docker", "restart", container)
+        activate_after_restart("post_delivery", before_restart_state)
         end = time.monotonic() + 60
         restart_status = None
         restart_postmaster = None
@@ -1733,6 +1767,7 @@ def main():
         sql("ALTER SYSTEM SET pg_react.worker_role = 'mdm_s1_runtime'")
         postmaster_before_human = timestamp(sql("SELECT pg_postmaster_start_time()"))
         command("docker", "restart", container)
+        activate_after_restart("post_human_reduction", human_quiet_before)
         end = time.monotonic() + 60
         human_worker_status = None
         human_postmaster = None
@@ -2038,6 +2073,7 @@ def main():
         old_postmaster = timestamp(sql("SELECT pg_postmaster_start_time()"))
         old_heartbeat = timestamp(observed_heartbeat)
         command("docker", "restart", container)
+        activate_after_restart("post_recurrence", before_recurrence_restart)
         restart_end = time.monotonic() + 60
         restarted_status = None
         new_postmaster = None
@@ -2168,6 +2204,7 @@ def main():
         max_start_before = timestamp(sql("SELECT pg_postmaster_start_time()"))
         max_heartbeat_before = timestamp(heartbeat)
         command("docker", "restart", container)
+        activate_after_restart("post_maximum", max_restart_before)
         end = time.monotonic() + 60
         max_restart_status = None
         max_start_after = None
@@ -2243,8 +2280,8 @@ def main():
             "name": "authorized-pause-barrier", "result": "passed"
         })
         # The operator-owned paused binding must remain paused after a real
-        # PostgreSQL restart, and the enrolled worker must not manufacture
-        # new work or any MDM control while it resumes heartbeat cycles.
+        # PostgreSQL restart, and the worker must not manufacture effects
+        # while heartbeat cycles remain fenced pending reconciliation.
         pause_before = json.loads(sql(quiescence_sql))
         pause_binding_before = json.loads(sql(
             "SELECT jsonb_build_object("
@@ -2259,6 +2296,7 @@ def main():
         previous_postmaster = timestamp(sql("SELECT pg_postmaster_start_time()"))
         previous_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
         previous_heartbeat = timestamp(previous_status["process"]["heartbeat_at"])
+        pause_requires_activation = sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") == "t"
         command("docker", "restart", container)
         until = time.monotonic() + 60
         after_postmaster = None
@@ -2273,8 +2311,10 @@ def main():
             resumed_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
             process = resumed_status.get("process") or {}
             new_heartbeat = process.get("heartbeat_at")
+            expected_pause_state = "error" if pause_requires_activation else "ready"
             if (after_postmaster > previous_postmaster
-                    and process.get("state") == "ready" and new_heartbeat
+                    and process.get("state") == expected_pause_state and new_heartbeat
+                    and (not pause_requires_activation or process.get("detail") == "MDM activation required")
                     and timestamp(new_heartbeat) > previous_heartbeat):
                 break
             time.sleep(0.2)
@@ -2289,7 +2329,8 @@ def main():
             resumed_status = json.loads(sql("SELECT pgreact_api.managed_status()"))
             process = resumed_status.get("process") or {}
             new_heartbeat = process.get("heartbeat_at")
-            if (process.get("state") == "ready" and new_heartbeat
+            if (process.get("state") == expected_pause_state and new_heartbeat
+                    and (not pause_requires_activation or process.get("detail") == "MDM activation required")
                     and timestamp(new_heartbeat) > first_resumed + datetime.timedelta(seconds=3)):
                 break
             time.sleep(0.2)
@@ -2540,6 +2581,27 @@ def main():
         assert final_status["process"]["state"] == "ready", final_status
         final_heartbeat = timestamp(final_status["process"]["heartbeat_at"])
         command("docker", "restart", container)
+        activate_after_restart("post_resume", final_before)
+        final_binding_activated = json.loads(sql(
+            "SELECT jsonb_build_object("
+            "'bindings',(SELECT COALESCE(jsonb_agg(to_jsonb(b) ORDER BY binding_id),'[]') FROM pgreact_mdm.policy_intent_bindings b),"
+            "'runtime',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id),'[]') FROM pgreact_mdm.policy_intent_runtime r),"
+            "'mdm_runtime',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id),'[]') FROM mdm_internal.policy_binding_runtime r))"))
+        if "post_resume" in observations.get("restart_activations", {}):
+            activation = observations["restart_activations"]["post_resume"]
+            assert final_binding_activated["bindings"] == final_binding_before["bindings"]
+            for key, changed in (("runtime", {"runtime_version", "activated_at"}),
+                                 ("mdm_runtime", {"runtime_version", "activation_epoch", "changed_at"})):
+                before_rows, after_rows = final_binding_before[key], final_binding_activated[key]
+                assert len(before_rows) == len(after_rows)
+                for old, new in zip(before_rows, after_rows):
+                    if old["binding_id"] == activation["runtime_before"]["binding_id"]:
+                        assert new["runtime_version"] == activation["runtime_after"]
+                        assert {k: v for k, v in new.items() if k not in changed} == {k: v for k, v in old.items() if k not in changed}
+                    else:
+                        assert new == old
+        else:
+            assert final_binding_activated == final_binding_before
         end = time.monotonic() + 60
         restarted = None
         new_postmaster = None
@@ -2591,9 +2653,9 @@ def main():
             "error": "post-resume restart replayed or changed durable state",
             "before": final_before, "after": final_after,
         }
-        assert final_binding_after == final_binding_before, {
+        assert final_binding_after == final_binding_activated, {
             "error": "post-resume restart changed binding version or state",
-            "before": final_binding_before, "after": final_binding_after,
+            "before": final_binding_activated, "after": final_binding_after,
         }
         observations["post_resume_restart"] = {
             "postmaster_before": final_start.isoformat(),
@@ -2603,8 +2665,10 @@ def main():
             "full_before": final_before,
             "full_after": final_after,
             "bindings_before": final_binding_before,
+            "bindings_after_activation": final_binding_activated,
             "bindings_after": final_binding_after,
             "unchanged": True,
+            "bindings_unchanged_after_activation": True,
         }
         observations["checks"].append({
             "name": "post-resume-restart-no-replay", "result": "passed"
