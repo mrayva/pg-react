@@ -55,6 +55,7 @@ jobs:
             /usr/lib/postgresql/18/lib/pg_react.so > clone-evidence/react-library.txt
       - name: Repeat physical clone, direct delivery, claimed-work and recurrence tests
         run: |
+          set +e
           set -uo pipefail
           status=0
           for mode in clean-clone clean-clone-direct claimed-work autonomous-recurrence; do
@@ -79,6 +80,7 @@ jobs:
       - name: Run full joint audit on the activation candidate
         if: ${{ !cancelled() }}
         run: |
+          set +e
           set -uo pipefail
           command=(python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-candidate clone-evidence/full)
           printf '%q ' "${command[@]}" > clone-evidence/full.command

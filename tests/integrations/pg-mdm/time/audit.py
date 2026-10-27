@@ -942,7 +942,8 @@ def main():
             "docker", "info", "--format", "{{.Architecture}} {{.NCPU}} {{.MemTotal}}").strip()
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
-                image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_mdm,pg_react",
+                image, "postgres", "-c", "shared_preload_libraries=" +
+                ("pg_trickle,pg_react" if compatibility_only else "pg_trickle,pg_mdm,pg_react"),
                 "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
@@ -1280,6 +1281,30 @@ def main():
             }
         else:
             command("docker", "restart", container)
+        command("docker", "exec", container, "sh", "-c",
+                "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
+        if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") == "t":
+            activation_deadline = time.monotonic() + 30
+            while time.monotonic() < activation_deadline:
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
+                process = status.get("process") or {}
+                if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("managed worker did not block for post-restart activation")
+            assert cases() == before
+            assert json.loads(sql("SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) "
+                                  "FROM mdm_steward.policy_receipts_v1 r")) == observations["mdm_entry_receipts"]
+            runtime = json.loads(sql("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
+                "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+                "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility'"))
+            observations["post_restart_activation"] = {"blocked_status": status, "runtime_before": runtime}
+            observations["post_restart_activation"]["runtime_after"] = int(sql(
+                "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                    runtime["binding_id"], runtime["runtime_version"])))
+            assert observations["post_restart_activation"]["runtime_after"] == runtime["runtime_version"] + 1
         end = time.monotonic() + 120
         receipts = []
         while time.monotonic() < end:
