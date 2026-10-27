@@ -445,12 +445,30 @@ BEGIN
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION pgreact_mdm.require_recovery_capabilities()
+CREATE OR REPLACE FUNCTION pgreact_mdm.require_recovery_capabilities(binding_id uuid)
 RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $function$
 BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pgreact_mdm.policy_intent_bindings b
+        JOIN pgreact_mdm.policy_intent_packages p USING (policy_revision)
+        JOIN mdm_steward.policy_bindings_v1 m USING (binding_id)
+        JOIN mdm_internal.entities e USING (entity_id)
+        WHERE b.binding_id = $1 AND b.enabled AND m.replaced_by IS NULL
+          AND pg_catalog.pg_has_role(session_user, b.entity_execution_role, 'MEMBER')
+          AND e.entity_name = b.entity_name AND e.execution_role_name = b.entity_execution_role::text
+          AND m.automation_role_name = 'pgreact_mdm_worker'
+          AND m.binding_version = b.binding_version
+          AND m.policy_digest = b.policy_digest AND p.policy_digest = b.policy_digest
+          AND m.allowed_actions @> b.allowed_actions AND b.allowed_actions @> m.allowed_actions
+          AND m.allowed_queues::text[] @> b.allowed_queues AND b.allowed_queues @> m.allowed_queues::text[]
+          AND m.max_due_interval IS NOT DISTINCT FROM b.max_due_interval
+          AND m.max_escalation_level = b.max_escalation_level
+    ) THEN
+        RAISE EXCEPTION 'MDM_RECOVERY_BINDING_MISMATCH: binding must match the retained MDM policy';
+    END IF;
     PERFORM pgreact_internal.require_pgtrickle_runtime();
 END
 $function$;
@@ -474,7 +492,7 @@ BEGIN
     IF binding.entity_execution_role <> current_user::name THEN
         RAISE EXCEPTION 'MDM_BINDING_ACTOR: caller does not own binding %', $1;
     END IF;
-    PERFORM pgreact_mdm.require_recovery_capabilities();
+    PERFORM pgreact_mdm.require_recovery_capabilities($1);
     runtime_version := mdm_admin.set_policy_binding_state(
         $1, $2, 'active', 'pg-react M2 runtime reconciliation');
     PERFORM pgreact_mdm.configure_policy_worker_privileges();

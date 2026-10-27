@@ -245,6 +245,9 @@ def main():
         expected_case["action_revision"] += 1
         assert after["cases"] == expected_cases
         assert after["business"] == before["business"] and after["technical"] == before["technical"]
+        assert after["identities"] == before["identities"]
+        assert after["identity_sequence"] == before["identity_sequence"]
+        assert after["holds"] == before["holds"]
         new_receipts = [r for r in after["receipts"] if r not in before["receipts"]]
         assert len(new_receipts) == 1, new_receipts
         receipt = new_receipts[0]
@@ -357,6 +360,9 @@ def main():
             "'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY created_at,receipt_id) FROM mdm_steward.policy_receipts_v1 r),"
             "'requests',(SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY binding_id,request_key),'[]') FROM pgreact_mdm.intent_requests r),"
             "'intent_attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY episode_id,attempt_no),'[]') FROM pgreact_mdm.intent_attempts a),"
+            "'holds',(SELECT COALESCE(jsonb_agg(to_jsonb(h) ORDER BY binding_id,case_key,policy_revision,expected_action_revision),'[]') FROM pgreact_mdm.intent_holds h),"
+            "'identities',(SELECT COALESCE(jsonb_agg(to_jsonb(i) ORDER BY case_identity),'[]') FROM pgreact_mdm.intent_case_identities i),"
+            "'identity_sequence',(SELECT jsonb_build_object('last_value',last_value,'is_called',is_called) FROM pgreact_mdm.intent_case_identities_case_identity_seq),"
             "'work',(SELECT jsonb_agg(to_jsonb(w) ORDER BY work_id) FROM pgreact.work w WHERE name='s1-future-idle'),"
             "'attempts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY execution_id),'[]') FROM pgreact.attempts a WHERE name='s1-future-idle'),"
             "'business',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.policy_qualification_source s),"
@@ -488,10 +494,12 @@ def main():
             runtime = next(r for r in identity["mdm_runtime"] if r["binding_id"] == binding["binding_id"])
             activate = "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
                 binding["binding_id"], runtime["runtime_version"])
+            rejections = observations["activation_rejections"] = {}
             try:
                 sql("SET SESSION AUTHORIZATION mdm_s1_runtime; SET ROLE pgreact_mdm_worker; " + activate)
                 raise AssertionError("worker role unexpectedly activated the copied binding")
             except RuntimeError as error:
+                rejections["unauthorized"] = str(error)
                 assert "MDM_WORKER_ROLE_MEMBERSHIP" in str(error) or "MDM_BINDING_ACTOR" in str(error), str(error)
             assert json.loads(sql(state_query)) == before
             stale = "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
@@ -500,6 +508,7 @@ def main():
                 sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + stale)
                 raise AssertionError("stale runtime version unexpectedly activated the copied binding")
             except RuntimeError as error:
+                rejections["stale_version"] = str(error)
                 assert "runtime version is stale or binding is replaced" in str(error), str(error)
             sql("GRANT mdm_helper_owner TO pgreact_mdm_worker")
             try:
@@ -507,6 +516,7 @@ def main():
                     sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
                     raise AssertionError("unsafe worker membership unexpectedly activated the copied binding")
                 except RuntimeError as error:
+                    rejections["unsafe_worker_membership"] = str(error)
                     assert "MDM_WORKER_ROLE_MEMBERSHIP" in str(error), str(error)
             finally:
                 sql("REVOKE mdm_helper_owner FROM pgreact_mdm_worker")
@@ -515,7 +525,17 @@ def main():
                     "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
                 raise AssertionError("unsupported producer settings unexpectedly activated the copied binding")
             except RuntimeError as error:
+                rejections["unsupported_producer"] = str(error)
                 assert "pg-react pg_trickle runtime is unsupported" in str(error), str(error)
+            try:
+                unexpected = sql("BEGIN; UPDATE pgreact_mdm.policy_intent_bindings SET max_escalation_level=1 "
+                                 "WHERE binding_id='" + binding["binding_id"] + "'::uuid; "
+                                 "SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
+                rejections["binding_mismatch_unexpected_result"] = unexpected
+                raise AssertionError("mismatched adapter binding unexpectedly activated")
+            except RuntimeError as error:
+                rejections["binding_mismatch"] = str(error)
+                assert "MDM_RECOVERY_BINDING_MISMATCH" in str(error), str(error)
             assert json.loads(sql(state_query)) == before
             sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; " + activate)
             drain_restored_pending(state_query, before, "s1_idle", automatic=True, already_running=True)
@@ -923,7 +943,7 @@ def main():
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
                 image, "postgres", "-c", "shared_preload_libraries=" +
-                ("pg_trickle,pg_mdm,pg_react" if clean_clone or direct_clone or autonomous_recurrence else "pg_trickle,pg_react"),
+                ("pg_trickle,pg_mdm,pg_react" if clean_clone or direct_clone or autonomous_recurrence or claimed_work else "pg_trickle,pg_react"),
                 "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",

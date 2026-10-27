@@ -53,11 +53,11 @@ jobs:
           cmp clone-evidence/mdm-libraries.txt clone-evidence/joint-libraries.txt
           docker run --rm --entrypoint sha256sum pgreact:clone-candidate \
             /usr/lib/postgresql/18/lib/pg_react.so > clone-evidence/react-library.txt
-      - name: Repeat physical clone, direct delivery and autonomous recurrence tests
+      - name: Repeat physical clone, direct delivery, claimed-work and recurrence tests
         run: |
           set -uo pipefail
           status=0
-          for mode in clean-clone clean-clone-direct autonomous-recurrence; do
+          for mode in clean-clone clean-clone-direct claimed-work autonomous-recurrence; do
             for run in first repeat; do
               command=(python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-candidate "clone-evidence/$mode-$run" "--$mode")
               printf '%q ' "${command[@]}" > "clone-evidence/$mode-$run.command"
@@ -68,7 +68,7 @@ jobs:
               if [ "$result" -ne 0 ]; then
                 status=1
               else
-                python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); mode=sys.argv[2]; passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; required={"clean-clone":{"clean-clone-preactivation","pending-recovery-s1_idle-5432"},"clean-clone-direct":{"clean-clone-direct-delivery-blocked"},"autonomous-recurrence":{"autonomous-recurrence"}}[mode]; assert required <= passed, o.get("failure"); assert mode != "clean-clone" or o["entry_decision"]=="FOCUSED_CLEAN_CLONE_RECOVERY_QUALIFIED"; assert mode != "autonomous-recurrence" or (o["entry_decision"]=="FOCUSED_AUTONOMOUS_RECURRENCE_QUALIFIED" and o["autonomous_recurrence"]["old_receipts_unchanged"] and o["autonomous_recurrence"]["no_replay_across_cycles_and_restart"])' "clone-evidence/$mode-$run/observations.json" "$mode" > "clone-evidence/$mode-$run.validation.log" 2>&1
+                python3 -c 'import json,sys; o=json.load(open(sys.argv[1])); mode=sys.argv[2]; passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; required={"clean-clone":{"clean-clone-preactivation","pending-recovery-s1_idle-5432"},"clean-clone-direct":{"clean-clone-direct-delivery-blocked"},"claimed-work":{"claimed-pause-barrier","pause-first-runtime-freshness","paused-before-claim","human-edit-claim-orders","binding-replacement-claim-orders","fresh-after-terminal-pause","cross-key-after-human-reduction"},"autonomous-recurrence":{"autonomous-recurrence"}}[mode]; assert required <= passed, o.get("failure"); assert mode != "clean-clone" or o["entry_decision"]=="FOCUSED_CLEAN_CLONE_RECOVERY_QUALIFIED"; assert mode != "claimed-work" or (o["entry_decision"]=="FOCUSED_CLAIMED_PAUSE_QUALIFIED" and not o["claimed_pause"]["pause_acknowledged_before_delivery_release"]); assert mode != "autonomous-recurrence" or (o["entry_decision"]=="FOCUSED_AUTONOMOUS_RECURRENCE_QUALIFIED" and o["autonomous_recurrence"]["old_receipts_unchanged"] and o["autonomous_recurrence"]["no_replay_across_cycles_and_restart"])' "clone-evidence/$mode-$run/observations.json" "$mode" > "clone-evidence/$mode-$run.validation.log" 2>&1
                 validation=$?
                 printf '%s\n' "$validation" > "clone-evidence/$mode-$run.validation.exit"
                 if [ "$validation" -ne 0 ]; then status=1; fi
