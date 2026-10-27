@@ -410,15 +410,23 @@ def main():
                 raise AssertionError("clean clone did not start")
             actual_identity = json.loads(sql(identity_query))
             assert actual_identity == identity, {"expected": identity, "actual": actual_identity}
-            end = time.monotonic() + 10
+            postmaster_start = timestamp(json.loads(sql("SELECT to_json(pg_postmaster_start_time())")))
+            end = time.monotonic() + 30
             while time.monotonic() < end:
                 after = json.loads(sql(state_query))
+                status = json.loads(sql("SELECT pgreact_api.managed_status()"))
                 if after != before:
+                    break
+                process = status.get("process") or {}
+                if (process.get("state") == "ready" and process.get("heartbeat_at")
+                        and timestamp(process["heartbeat_at"]) > postmaster_start + datetime.timedelta(seconds=4)):
                     break
                 time.sleep(0.2)
             observations["clean_clone"] = {"identity": actual_identity, "before": before, "after": after,
-                                           "managed_status": json.loads(sql("SELECT pgreact_api.managed_status()"))}
+                                           "managed_status": status}
             assert after == before, "clean physical clone changed durable work or controls before activation"
+            assert process.get("state") == "ready" and process.get("heartbeat_at") and \
+                timestamp(process["heartbeat_at"]) > postmaster_start + datetime.timedelta(seconds=4), status
             observations["checks"].append({"name": "clean-clone-preactivation", "result": "passed"})
         finally:
             subprocess.run(["docker", "rm", "--force", "--volumes", original], capture_output=True)

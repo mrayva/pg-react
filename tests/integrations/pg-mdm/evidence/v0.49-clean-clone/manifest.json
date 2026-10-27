@@ -14,7 +14,7 @@
   },
   "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f",
   "regression_sha256": "e16ff37e4bd4827098aa24eae3523a35fa44bceb3a25c46cf3e5c4692c5f5328",
-  "raw_archive_sha256": "795a1bbb4b03d21056cbfba465a0c12cc31e68be6d4aeab380d3ca19273b1471",
+  "raw_archive_sha256": "cd35d08b4affcc7888bf3e97a144505aa62f48ba2b9fd45a5e889247bfcb5542",
   "focused_command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --clean-clone",
   "focused_runs": [
     {
@@ -26,8 +26,14 @@
       "directory": "pgreact-clean-clone-repeat-20261027",
       "exit": 1,
       "result": "independent repeat: copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    },
+    {
+      "directory": "pgreact-clean-clone-worker-check2-20261027",
+      "exit": 1,
+      "result": "independent repeat with later-worker-cycle assertion: copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
     }
   ],
-  "earlier_runs": "Full bootstrap and three harness failures remain in the raw archive; they are not product-regression results.",
-  "release_qualified": false
+  "earlier_runs": "Full bootstrap and four harness failures remain in the raw archive; they are not product-regression results.",
+  "release_qualified": false,
+  "worker_cycle_regression_sha256": "9dcf489dc71894ac22e3e9096637da3efbc434102d59f270240e1f406ea962ec"
 }
