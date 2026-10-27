@@ -1,0 +1,33 @@
+{
+  "react_source": "96e07090be0da636445b5a27fd8d5e39cc5476f1",
+  "react_source_archive_sha256": "3495001e6eb8a2eef4a6cfde0212e15884e646049170c0446579d5f7a094b716",
+  "mdm_source": "061705d17dae52697f6e7371b7840722a6ad4bde",
+  "mdm_source_archive_sha256": "cb536694ce8d4deb83c73c0184dbba66a1043218c604e769272bc4087f7fab97",
+  "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "pg_trickle_source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+  "image": "sha256:90559bc08fca7b5215a4d6830388c123ca626d5e43de8b2b81274a960c245c6e",
+  "image_architecture": "amd64 on aarch64 Docker Desktop; not performance qualification",
+  "libraries_sha256": {
+    "pg_mdm": "a3e1602c98ee30c1ee8246abb62c408ec9940070b0dfed0bfbef35e59000c875",
+    "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+    "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+  },
+  "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f",
+  "regression_sha256": "e16ff37e4bd4827098aa24eae3523a35fa44bceb3a25c46cf3e5c4692c5f5328",
+  "raw_archive_sha256": "795a1bbb4b03d21056cbfba465a0c12cc31e68be6d4aeab380d3ca19273b1471",
+  "focused_command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:merged-stack-clone OUTPUT --clean-clone",
+  "focused_runs": [
+    {
+      "directory": "pgreact-clean-clone-focused4-20261027",
+      "exit": 1,
+      "result": "copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    },
+    {
+      "directory": "pgreact-clean-clone-repeat-20261027",
+      "exit": 1,
+      "result": "independent repeat: copied overdue work delivered ESCALATE/APPLIED_CONTROL before activation"
+    }
+  ],
+  "earlier_runs": "Full bootstrap and three harness failures remain in the raw archive; they are not product-regression results.",
+  "release_qualified": false
+}

@@ -18,9 +18,10 @@ def main():
     outage_mode = sys.argv[3:] == ["--outage"]
     multi_outage = sys.argv[3:] == ["--multi-outage"]
     pending_recovery = sys.argv[3:] == ["--pending-recovery"]
+    clean_clone = sys.argv[3:] == ["--clean-clone"]
     autonomous_recurrence = sys.argv[3:] == ["--autonomous-recurrence"]
     claimed_work = sys.argv[3:] == ["--claimed-work"]
-    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or autonomous_recurrence or claimed_work):
+    if sys.argv[3:] and not (maintenance or compatibility_only or outage_mode or multi_outage or pending_recovery or clean_clone or autonomous_recurrence or claimed_work):
         raise ValueError("unsupported audit mode after IMAGE OUTPUT")
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -34,6 +35,7 @@ def main():
     observations["tested_max_claims_per_cycle"] = profile["focused_safety_max_claims_per_cycle"]
     observations["qualification_scope"] = "Focused safety/recovery at one claim per cycle; release workload capacity is not qualified."
     created = False
+    clone_volume = None
 
     def command(*args):
         result = subprocess.run(args, capture_output=True, text=True, timeout=300)
@@ -360,8 +362,68 @@ def main():
         before = json.loads(sql(state_query))
         observations["pending_setup"] = {"cycle": result, "state": before}
         assert sorted(w["state"] for w in before["work"]) == ["COMPLETED", "PENDING"], observations["pending_setup"]
+        if clean_clone:
+            qualify_clean_clone(state_query, before)
+            return
         qualify_recovery(state_query, pending=True)
         observations["entry_decision"] = "FOCUSED_PENDING_RECOVERY_QUALIFIED"
+
+    def qualify_clean_clone(state_query, before):
+        nonlocal container, clone_volume
+        original = container
+        clone = original + "-clone"
+        identity_query = (
+            "SELECT jsonb_build_object('database_oid',(SELECT oid FROM pg_database WHERE datname=current_database()),"
+            "'worker_oid',(SELECT oid FROM pg_roles WHERE rolname='pgreact_mdm_worker'),"
+            "'bindings',(SELECT jsonb_agg(to_jsonb(b) ORDER BY binding_id) FROM pgreact_mdm.policy_intent_bindings b),"
+            "'react_runtime',(SELECT jsonb_agg(to_jsonb(r) ORDER BY binding_id) FROM pgreact_mdm.policy_intent_runtime r),"
+            "'mdm_runtime',(SELECT jsonb_agg(to_jsonb(r) ORDER BY binding_id) FROM mdm_internal.policy_binding_runtime r))")
+        identity = json.loads(sql(identity_query))
+        assert identity["react_runtime"] and identity["mdm_runtime"]
+        assert sql("SHOW data_directory") == "/var/lib/postgresql/18/docker"
+        sql("ALTER SYSTEM SET pg_react.databases = 's1_idle'")
+        sql("ALTER SYSTEM SET pg_react.worker_role = 'mdm_s1_runtime'")
+        command("docker", "stop", "-t", "60", original)
+        try:
+            clone_volume = clone + "-data"
+            command("docker", "volume", "create", clone_volume)
+            command("docker", "run", "--rm", "--network", "none", "--user", "0", "--volumes-from", original,
+                    "--mount", "type=volume,source=" + clone_volume + ",destination=/clone",
+                    "--entrypoint", "cp", image, "-a", "/var/lib/postgresql/.", "/clone/")
+            command("docker", "create", "--name", clone, "--network", "none",
+                    "--mount", "type=volume,source=" + clone_volume + ",destination=/var/lib/postgresql",
+                    "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
+                    image, "postgres", "-c", "shared_preload_libraries=pg_trickle,pg_react",
+                    "-c", "pg_react.batch_size=1", "-c", "pg_react.poll_interval_ms=1000",
+                    "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
+                    "-c", "pg_trickle.differential_max_change_ratio=1.0",
+                    "-c", "default_transaction_isolation=read committed")
+            container = clone
+            command("docker", "start", clone)
+            end = time.monotonic() + 60
+            while time.monotonic() < end:
+                ready = subprocess.run(["docker", "exec", clone, "pg_isready", "-U", "postgres"], capture_output=True)
+                if not ready.returncode:
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("clean clone did not start")
+            actual_identity = json.loads(sql(identity_query))
+            assert actual_identity == identity, {"expected": identity, "actual": actual_identity}
+            end = time.monotonic() + 10
+            while time.monotonic() < end:
+                after = json.loads(sql(state_query))
+                if after != before:
+                    break
+                time.sleep(0.2)
+            observations["clean_clone"] = {"identity": actual_identity, "before": before, "after": after,
+                                           "managed_status": json.loads(sql("SELECT pgreact_api.managed_status()"))}
+            assert after == before, "clean physical clone changed durable work or controls before activation"
+            observations["checks"].append({"name": "clean-clone-preactivation", "result": "passed"})
+        finally:
+            subprocess.run(["docker", "rm", "--force", "--volumes", original], capture_output=True)
+            if container != clone:
+                subprocess.run(["docker", "rm", "--force", "--volumes", clone], capture_output=True)
 
     def qualify_two_case_outage(before, source, temporal_source):
         # This bounded fixture intentionally exercises two distinct, real MDM
@@ -811,6 +873,23 @@ def main():
         if compatibility_only:
             observations["entry_decision"] = "ADMISSION_ONLY"
             return
+        if clean_clone:
+            observations["fixture_sha256"] = command("docker", "exec", container, "sha256sum",
+                "/usr/lib/postgresql/18/lib/pg_react.so", "/usr/lib/postgresql/18/lib/pg_mdm.so",
+                "/usr/lib/postgresql/18/lib/pg_trickle.so").splitlines()
+            fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
+            sql("INSERT INTO public.policy_qualification_source VALUES "
+                "(5,'Clone One','clone-one@example.test',statement_timestamp()),"
+                "(6,'Clone One','clone-pair@example.test',statement_timestamp()),"
+                "(7,'Clone Two','clone-two@example.test',statement_timestamp()),"
+                "(8,'Clone Two','clone-pair@example.test',statement_timestamp())")
+            sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+                "SELECT mdm.refresh('policy_qualification','ALLOW')")
+            assert sql("SELECT count(*) FROM mdm_steward.policy_cases_v1 WHERE status='open'") == "2"
+            fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
+                    ("-v", "multi=true", "-v", "VERBOSITY=verbose"))
+            qualify_pending_recovery()
+            return
         if autonomous_recurrence or claimed_work:
             if claimed_work:
                 from claimed_work import qualify
@@ -971,8 +1050,8 @@ def main():
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_boundary")
         fixture("sample-boundaries", "/work/tests/integrations/pg-mdm/time/boundaries.sql", "s1_boundary")
         fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
-                ("-v", "multi=" + str(multi_outage or pending_recovery).lower(), "-v", "VERBOSITY=verbose"))
-        if pending_recovery:
+                ("-v", "multi=" + str(multi_outage or pending_recovery or clean_clone).lower(), "-v", "VERBOSITY=verbose"))
+        if pending_recovery or clean_clone:
             qualify_pending_recovery()
             return
         observations["registered_s1_rules"] = json.loads(sql(
@@ -2412,6 +2491,8 @@ def main():
         (output / "observations.json").write_text(json.dumps(observations, indent=2) + "\n")
         if created:
             command("docker", "rm", "--force", "--volumes", container)
+        if clone_volume:
+            command("docker", "volume", "rm", clone_volume)
 
 
 if __name__ == "__main__":
