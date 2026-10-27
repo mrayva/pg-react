@@ -5,7 +5,9 @@ import json
 import time
 
 
-def qualify(sql, command, fixture, container, observations):
+def qualify(sql, command, fixture, container, observations, timestamp):
+    assert timestamp("2026-10-27T09:24:55.69977+00:00") == datetime.datetime(
+        2026, 10, 27, 9, 24, 55, 699770, tzinfo=datetime.timezone.utc)
     fixture("autonomous-setup", "/work/tests/integrations/pg-mdm/time/autonomous-recurrence.sql", "s1_idle")
     read = lambda query: json.loads(sql(query))
     state = lambda: read("SELECT s1_auto.state()")
@@ -117,17 +119,37 @@ def qualify(sql, command, fixture, container, observations):
         assert event == {"rule_name": "s1-autonomous", "semantic_key": key, "generation": 1,
                          "revision": 0, "event_kind": "ACTIVATE", "declared_deadline": prior["due_at"],
                          "clock_frontier": event["clock_frontier"]}, event
-        assert datetime.datetime.fromisoformat(event["clock_frontier"]) >= datetime.datetime.fromisoformat(prior["due_at"])
+        assert timestamp(event["clock_frontier"]) >= timestamp(prior["due_at"])
         assert sql("SELECT has_function_privilege('mdm_s1_runtime',"
                    "'pgreact_mdm.sync_intent_case_identities()','EXECUTE')") == "f"
         assert sql("SELECT has_table_privilege('mdm_s1_runtime','pgtrickle.pgt_dependencies','SELECT')") == "f"
         return actual
+
+    def reconcile_after_restart(expected):
+        if sql("SELECT to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NOT NULL") != "t":
+            return
+        end = time.monotonic() + 30
+        while time.monotonic() < end:
+            process = read("SELECT pgreact_api.managed_status()").get("process") or {}
+            if process.get("state") == "error" and process.get("detail") == "MDM activation required":
+                break
+            time.sleep(0.2)
+        else:
+            raise AssertionError("managed worker did not block for post-restart activation")
+        assert state() == expected, "restart changed durable state before reconciliation"
+        runtime = read("SELECT jsonb_build_object('binding_id',b.binding_id,'runtime_version',r.runtime_version) "
+                       "FROM pgreact_mdm.policy_intent_bindings b JOIN mdm_internal.policy_binding_runtime r USING(binding_id) "
+                       "WHERE b.enabled AND b.policy_revision='s1-idle-feasibility'")
+        sql("SET SESSION AUTHORIZATION mdm_legacy_login; SET ROLE mdm_legacy_administrator; "
+            "SELECT pgreact_mdm.reconcile_intent_binding('{}'::uuid,{})".format(
+                runtime["binding_id"], runtime["runtime_version"]))
 
     sql("ALTER SYSTEM SET pg_react.databases='s1_idle'", "postgres")
     sql("ALTER SYSTEM SET pg_react.worker_role='mdm_s1_runtime'", "postgres")
     command("docker", "restart", container)
     command("docker", "exec", container, "sh", "-c",
             "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
+    reconcile_after_restart(before)
     first = delivered(before, original)
     observations["autonomous_occurrence_1"] = first
     fixture("autonomous-successor", "/work/tests/integrations/pg-mdm/time/autonomous-successor.sql", "s1_idle")
@@ -141,9 +163,9 @@ def qualify(sql, command, fixture, container, observations):
         r for r in first["receipts"] if r["case_key"] == original]
 
     def later_cycles():
-        started = datetime.datetime.fromisoformat(sql("SELECT clock_timestamp()"))
+        started = timestamp(json.loads(sql("SELECT to_json(clock_timestamp())")))
         wait_for(lambda _: (lambda p: p.get("state") == "ready" and p.get("heartbeat_at") and
-            datetime.datetime.fromisoformat(p["heartbeat_at"]) > started + datetime.timedelta(seconds=3))(
+            timestamp(p["heartbeat_at"]) > started + datetime.timedelta(seconds=3))(
                 read("SELECT pgreact_api.managed_status()").get("process") or {}),
             "managed cycles failed to advance after recurrence")
         assert state() == second, "later managed cycles changed durable state"
@@ -155,6 +177,7 @@ def qualify(sql, command, fixture, container, observations):
     command("docker", "exec", container, "sh", "-c",
             "until pg_isready -U postgres >/dev/null 2>&1; do sleep 0.2; done")
     assert sql("SELECT pg_postmaster_start_time()") > old_postmaster
+    reconcile_after_restart(second)
     later_cycles()
     observations["autonomous_recurrence"] = {"before": prepared, "after": second,
         "exact": True, "old_receipts_unchanged": True, "no_replay_across_cycles_and_restart": True}

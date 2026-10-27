@@ -923,7 +923,7 @@ def main():
         command("docker", "run", "--detach", "--name", container, "--network", "none",
                 "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--volume", str(root) + ":/work:ro",
                 image, "postgres", "-c", "shared_preload_libraries=" +
-                ("pg_trickle,pg_mdm,pg_react" if clean_clone or direct_clone else "pg_trickle,pg_react"),
+                ("pg_trickle,pg_mdm,pg_react" if clean_clone or direct_clone or autonomous_recurrence else "pg_trickle,pg_react"),
                 "-c", "pg_react.batch_size=" + str(profile["focused_safety_max_claims_per_cycle"]),
                 "-c", "pg_react.poll_interval_ms=" + str(profile["poll_interval_ms"]),
                 "-c", "pg_trickle.enabled=off", "-c", "pg_trickle.cdc_mode=trigger",
@@ -1002,7 +1002,10 @@ def main():
             fixture("autonomous-bootstrap", "/work/tests/integrations/pg-mdm/time/autonomous-bootstrap.sql", "postgres")
             fixture("idle-setup", "/work/tests/integrations/pg-mdm/time/idle.sql", "s1_idle",
                     ("-v", "multi=false", "-v", "VERBOSITY=verbose"))
-            qualify(sql, command, fixture, container, observations)
+            if claimed_work:
+                qualify(sql, command, fixture, container, observations)
+            else:
+                qualify(sql, command, fixture, container, observations, timestamp)
             return
         command("docker", "exec", container, "createdb", "-U", "postgres", "s1_cycle_bound")
         sql("CREATE EXTENSION pg_trickle; CREATE EXTENSION pg_react", "s1_cycle_bound")

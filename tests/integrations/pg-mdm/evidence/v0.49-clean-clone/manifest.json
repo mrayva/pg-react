@@ -85,5 +85,73 @@
     ],
     "archive_sha256": "99c30271f07b96852551e1c50c952b47f09f239fdaf5f1806ad2efa0c5dbf698",
     "release_qualified": false
+  },
+  "exact_441_and_upgrade_probe": {
+    "react_source": "44174e021a8a8718eccf8231a3ca354454202efb",
+    "react_archive_sha256": "34306a2901df6982ae6d7efcd44e46252b24a930e2462d219d9ed877163516f0",
+    "mdm_source": "74b5936d8cd6f1c21553913c3de2739eb20fb975",
+    "mdm_archive_sha256": "f69f35d82f98d8eba55394827c2c16f9a6930aa89c36afee0adce0866ae60e5e",
+    "pg_trickle_source": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+    "pg_trickle_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+    "image": "sha256:fe76dc28c7c27bc7b60d4fdd6e887b2370c5329582de4cf4f699f5e95d1e42b3",
+    "libraries_sha256": {
+      "pg_mdm": "dbb24dd7ae0d0600d7b2a0cac03127446705128d72ad181b1418a0f769d2ba49",
+      "pg_react": "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5",
+      "pg_trickle": "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58"
+    },
+    "runs": [
+      {
+        "path": "pgreact-clean-clone-exact-441-first",
+        "exit": 0,
+        "result": "clean clone guarded, original receipt replayed, authorized reconciliation and bounded resumption passed"
+      },
+      {
+        "path": "pgreact-direct-exact-441-first",
+        "exit": 0,
+        "result": "direct MDM request rejected without changing durable vectors"
+      },
+      {
+        "path": "pgreact-mdm-populated-adjacent-upgrade-probe",
+        "exit": 0,
+        "result": "populated 0.14.1 to 0.14.2 upgrade and pending resumption probe"
+      },
+      {
+        "path": "pgreact-mdm-populated-upgrade-reject-probe",
+        "exit": 0,
+        "result": "same probe with explicit preactivation request rejection"
+      },
+      {
+        "path": "pgreact-mdm-populated-upgrade-rollback-probe",
+        "exit": 0,
+        "result": "same probe with forced division-by-zero rollback exit 1, unchanged predecessor, retry and resumption"
+      }
+    ],
+    "upgrade_source": "React 96e07090be0da636445b5a27fd8d5e39cc5476f1 and MDM 061705d17dae52697f6e7371b7840722a6ad4bde; copied physical database upgraded with the target image; source React SQL remains installed.",
+    "scope": "Focused amd64-emulated local evidence only; subsequent commits and native CI require their own artifact evidence.",
+    "archive_sha256": "0ee8d829e0955da3bf4f6e01cb73c1185bb6088d6eca2cb14baff2fdf4bce9ae",
+    "release_qualified": false
+  },
+  "autonomous_epoch_probes": {
+    "scope": "Dirty React test-source against committed 44174e0/74b5936 local image; not exact-current or release qualification",
+    "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:clone-exact-441 OUTPUT --autonomous-recurrence",
+    "runs": [
+      {
+        "path": "pgreact-autonomous-epoch-candidate-20261027",
+        "exit": 1,
+        "result": "test harness failed parsing a five-digit fractional timestamp after real first delivery"
+      },
+      {
+        "path": "pgreact-autonomous-epoch-candidate-retry-20261027",
+        "exit": 0,
+        "result": "autonomous recurrence, explicit post-restart reconciliation and no replay passed after parser correction"
+      },
+      {
+        "path": "pgreact-autonomous-epoch-candidate-repeat-20261027",
+        "exit": 0,
+        "result": "independent corrected repeat passed"
+      }
+    ],
+    "archive_sha256": "18491ab706452312a36cef8c15b3c5e9aa315132d144babadbad3692a415ea6d",
+    "release_qualified": false
   }
 }
