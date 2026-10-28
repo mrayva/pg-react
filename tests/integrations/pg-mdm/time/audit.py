@@ -419,6 +419,21 @@ def main():
         observations["logical_restore"] = {"before": before, "after": after,
             "source_database_oid": sql("SELECT oid FROM pg_database WHERE datname=current_database()"),
             "restored_database_oid": sql("SELECT oid FROM pg_database WHERE datname=current_database()", "s1_logical")}
+        history = ("cases", "receipts", "requests", "intent_attempts", "holds", "identities",
+                   "identity_sequence", "business", "technical")
+        assert {key: after[key] for key in history} == {key: before[key] for key in history}
+        assert sql("SELECT NOT pgreact_mdm.policy_runtime_ready()", "s1_logical") == "t"
+        fixture("logical-restore-guard", "/work/tests/integrations/pg-mdm/time/recovery.sql",
+                "s1_logical", ("-v", "pending=true"))
+        pending = int(sql("SELECT count(*) FROM pgreact_internal.agenda "
+                          "WHERE state IN ('PENDING','LEASED','RETRY_WAIT')", "s1_logical"))
+        cycles = [json.loads(sql("SET SESSION AUTHORIZATION mdm_s1_runtime; "
+                                 "SELECT pgreact_api.managed_cycle()", "s1_logical")) for _ in range(2)]
+        observations["logical_restore"]["preactivation_cycles"] = cycles
+        assert cycles == [{"state": "blocked", "pending_jobs": pending, "processed_jobs": 0,
+                           "reason": "MDM activation required"}] * 2, cycles
+        assert json.loads(sql(state_query, "s1_logical")) == after
+        observations["checks"].append({"name": "logical-restore-blocked-cycles", "result": "passed"})
         assert after == before, "logical restore did not preserve the complete recovery state"
         assert sql("SELECT NOT EXISTS (SELECT 1 FROM pgreact_mdm.authorized_policy_cases_v1)", "s1_logical") == "t"
         observations["checks"].append({"name": "logical-restore-preactivation", "result": "passed"})
