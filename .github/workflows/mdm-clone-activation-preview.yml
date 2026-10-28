@@ -15,13 +15,13 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: trickle-labs/pg-mdm
-          ref: e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043
+          ref: ad2597f72ee657cb946c5bbd7ae5eb2bfd1ac1b3
           path: .producer/mdm
       - name: Record source and profile identity
         run: |
           set -euo pipefail
           mkdir -p clone-evidence
-          test "$(git -C .producer/mdm rev-parse HEAD)" = "e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043"
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "ad2597f72ee657cb946c5bbd7ae5eb2bfd1ac1b3"
           git rev-parse HEAD > clone-evidence/react-source.txt
           git -C .producer/mdm rev-parse HEAD > clone-evidence/mdm-source.txt
           git archive --format=tar HEAD | sha256sum > clone-evidence/react-archive-sha256.txt
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           docker build -f .producer/mdm/tests/Dockerfile.e2e \
-            --build-arg PG_MDM_SOURCE_REVISION=e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043 \
+            --build-arg PG_MDM_SOURCE_REVISION=ad2597f72ee657cb946c5bbd7ae5eb2bfd1ac1b3 \
             --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
             --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
             --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
