@@ -1,23 +1,10 @@
 name: Release pg-react adapter v0.48.0
 
+# This published, immutable release pins the original v0.48 SQL source hashes.
+# Later v0.49 pull requests intentionally change those files and must be
+# qualified by current CI and v0.49 gates, not the frozen v0.48 source manifest.
+# Preserve explicit historical verification on dispatch and on the v0.48 tag.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/v0.48.0-release.yml
-      - .github/workflows/qualification.yml
-      - Cargo.lock
-      - Cargo.toml
-      - Dockerfile
-      - docker/**
-      - docs/v0.48.0-release-notes.md
-      - integrations/pg-mdm/**
-      - plans/v0.48.0.md
-      - showcase/mdm-stewardship/**
-      - sql/**
-      - src/**
-      - tests/integrations/pg-mdm/**
-      - tests/mdm_stewardship_contract.py
-      - tests/qualification.sh
   workflow_dispatch:
   push:
     tags:

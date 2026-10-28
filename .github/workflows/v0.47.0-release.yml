@@ -69,12 +69,12 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/work:ro" \
             "$IMAGE" postgres -c shared_preload_libraries=pg_trickle,pg_react >/dev/null
           for attempt in $(seq 1 60); do
-            if docker logs "$container" 2>&1 | grep -Fq 'PostgreSQL init process complete'; then
+            if docker logs "$container" 2>&1 | grep -F 'PostgreSQL init process complete' >/dev/null; then
               break
             fi
             sleep 2
           done
-          if ! docker logs "$container" 2>&1 | grep -Fq 'PostgreSQL init process complete'; then
+          if ! docker logs "$container" 2>&1 | grep -F 'PostgreSQL init process complete' >/dev/null; then
             docker logs "$container"
             exit 1
           fi

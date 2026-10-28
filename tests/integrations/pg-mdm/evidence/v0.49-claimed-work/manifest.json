@@ -1,0 +1,508 @@
+{
+  "schema_version": 1,
+  "react_base_sha": "06c8fea9df0d997131709614a86b556c11c7bc42",
+  "mdm_repair_sha": "40e9cb7b9018627e2ecb17ca387017950d438c31",
+  "mdm_repair_pr": "https://github.com/trickle-labs/pg-mdm/pull/22",
+  "original_mdm_pin": "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8",
+  "producer_sha": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "producer_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+  "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f",
+  "profile": {
+    "schema_version": 1,
+    "issue": "https://github.com/trickle-labs/pg-react/issues/12",
+    "approval": {
+      "owner": "grove",
+      "date": "2026-10-26",
+      "source": "Owner authorized recommended numeric qualification limits in the issue #12 implementation conversation on 2026-10-26, then explicitly approved 32 claims per release-workload cycle while retaining the one-claim safety regression.",
+      "scope": "Candidate qualification thresholds; production activation and release acceptance remain separate."
+    },
+    "poll_interval_ms": 1000,
+    "max_claims_per_cycle": 32,
+    "focused_safety_max_claims_per_cycle": 1,
+    "max_next_levels_per_case_evaluation": 1,
+    "maximum_escalation_level": 2,
+    "workload_cases": 300,
+    "offered_cases_per_minute": 60,
+    "minimum_cases_per_minute": 45,
+    "simultaneous_due_burst_cases": 1000,
+    "due_burst_p95_seconds": 150,
+    "due_burst_max_seconds": 180,
+    "detection_dispatch_max_seconds": 180,
+    "backlog_drain_max_seconds": 180,
+    "outage_max_seconds": 120,
+    "recovery_max_seconds": 180,
+    "peak_memory_limit_bytes_exclusive": 4294967296,
+    "wal_limit_bytes_inclusive": 4294967296,
+    "row_writes_limit_inclusive": 10000000,
+    "storage_limit_bytes_exclusive": 10737418240,
+    "duplicate_controls_allowed": 0,
+    "unauthorized_controls_allowed": 0,
+    "preserve_original_deadlines": true,
+    "explicit_restore_and_clone_activation": true,
+    "receipt_retention": "Retain request keys, canonical request bodies and applied-level receipts throughout the occurrence lifetime and for at least 90 days after it ends; retain coherent backups across that recovery horizon. No automatic pruning is introduced.",
+    "retention_after_occurrence_days_minimum": 90,
+    "remaining_measurements": [
+      "Exact-current-joint-stack paired 300-case qualification, including every non-throughput gate",
+      "Mixed-backlog fairness and progress under churn",
+      "Workload-scale recovery time, row writes, WAL and peak memory against the approved numeric limits",
+      "Coherent recovery across the 90-day post-occurrence receipt/key retention horizon"
+    ]
+  },
+  "tested_source_sha256": {
+    "integrations/pg-mdm/sql/comparison.sql": "865d48a66a36a7e663ca9de2fc2772d19cb03de157c9146a8f479e165d96cb1b",
+    "integrations/pg-mdm/sql/deadline-preview.sql": "d9c837597f45974704e939bcd14526adf1b2917b4845024caa22e29dc94c86d8",
+    "integrations/pg-mdm/sql/intent-worker.sql": "9b39529a9ec71891f1a98144effe08efb96e79d6f68f4402668d648df4993cbc",
+    "integrations/pg-mdm/sql/policy-inputs.sql": "b0aa2f9b06f536fc257c0699d30e3ad518ef0d464adc809313081258e793980c",
+    "integrations/pg-mdm/sql/request-store.sql": "0ae7dc835716bd9a799b5d9031b9790fddf4235f1a2cb634fd4b5021ccd39a98",
+    "integrations/pg-mdm/sql/routing.sql": "c1f41936044c8981a43f31794719b5c3da8d14a9aba67a1c32969a2b5f1393b1",
+    "integrations/pg-mdm/sql/typed-flow.sql": "b53646d0b62e31c2b834c0325acb8be9418ada4808017a2c8579ad45866c3bf8",
+    "pg_react.control": "684f15baa751a97717fe686496a9e809a4f04c73a38a9d21fe3e4ef49e84ff6a",
+    "sql/pg_react--0.46.1.sql": "990a525927e9fba4b1d9958f40359c55ba71ed2949b6d99b64fad02616f1aaf2",
+    "src/identity.rs": "522d609495853348ff06379e53b421779d4e524ac4d970e310462ba89fd0271e",
+    "src/lib.rs": "0b8f6183fb21b4e612e6fae6e90248240b0049988b41d77c518ec0b17c0b45d9",
+    "src/lifecycle.rs": "0b5c16b35c093ba0345f322f9e180da8fc69a4396079821ccc50e4f6ffabe52a",
+    "src/managed.rs": "1774c292f8850d450cc1cf822f63a651d3cef1138b3b6fcf349e576a1655ffb4",
+    "src/oracle.rs": "b9b5dcafe6273341f75ad8670f14174b77e2deaa9dc51e78328d7d4e83ab565d",
+    "src/rewrite.rs": "58c59523be2a68e049c8538c365a4a71b79dcb7d29a21e698afa737c682c9370",
+    "tests/integrations/pg-mdm/time/audit.py": "99a96221d7afb0ec7b4be29e5c0c18237631f02da830853d58f9168e91d9350c",
+    "tests/integrations/pg-mdm/time/autonomous-bootstrap.sql": "0771e4b7c895095a4c85455983a37be9a011c7845ec8efd9852dcbdc8e1b117e",
+    "tests/integrations/pg-mdm/time/autonomous-recurrence.sql": "4090ed6b9ec88b6c42ea2b1dfce329003fb1b38f8075ba321da71270c0746e7c",
+    "tests/integrations/pg-mdm/time/autonomous-successor.sql": "972ecb715e446d9dc74e9200ddfc45ba4b6f17a7d4eb490418ca036669bb6522",
+    "tests/integrations/pg-mdm/time/autonomous_recurrence.py": "5dffdf8046db3089791241b51cae9279629f4455168d22b5dc28cb975fb75681",
+    "tests/integrations/pg-mdm/time/boundaries.sql": "c93cb99e9fef9dd6d1d9165519cbe74d4436a58b8890d08d2b0d6b941d1e1f8a",
+    "tests/integrations/pg-mdm/time/claimed-work.sql": "ea4e4b163c4792a77f270cbc2a42d27a6284b882c5500c064ae70371551be57b",
+    "tests/integrations/pg-mdm/time/claimed_work.py": "51ed440442442866d0c78f490b72fd120bb3080b1d5a5658501fff7c0793cff5",
+    "tests/integrations/pg-mdm/time/compatibility.sql": "94e35dfa253ccbda0c8517e4c53a5221e123b10b1858c85a53d7c1f62f16f81d",
+    "tests/integrations/pg-mdm/time/human-reduction-crosskey.sql": "5dc236d46f7fa3eb06c1126730d7c0f14da69740c435f09983f150b5385171c7",
+    "tests/integrations/pg-mdm/time/human-stale-after-concurrency.sql": "cae0a5a02711ef17e387249869d787d0dbe62066958b84747299865391f28498",
+    "tests/integrations/pg-mdm/time/idle-seed.sql": "432aaedc2060f558f51ec84b45b238b9c518e0c9fd77a9b11711527eeee012c6",
+    "tests/integrations/pg-mdm/time/idle.sql": "3c6b839193070f6c9e9dd166bfacf1bc5f3c60fcef19f852f3e483470d826a07",
+    "tests/integrations/pg-mdm/time/maintenance.sql": "51483d464bf4eff63c371cd42a375d3baa99874453262645f9d36149b826a86a",
+    "tests/integrations/pg-mdm/time/managed-admission.sql": "0899f97711a1a5f0039ee9f2f2aadf15b001045177795be2a91cecb632dc74f2",
+    "tests/integrations/pg-mdm/time/pause-barrier.sql": "64f8ea82b6d8d26e2e595bef2b2476c8a0a431cf3fb04ff1b224150cdc49a9d9",
+    "tests/integrations/pg-mdm/time/recovery.sql": "ab6fded89e2a5ad8c74cf823acf6d67b8c2bc1a06d8f67c8a5c72c89f3cdf9c3",
+    "tests/integrations/pg-mdm/time/recurrence-independent.sql": "965455dfba5cb2178027960b2e6577edee7418377314b55f7401a9b07ec77045",
+    "tests/integrations/pg-mdm/time/recurrence-maximum.sql": "4a9c008db523488ba4321d11416c0b9375617b47ce761c554add70022cda4870",
+    "tests/integrations/pg-mdm/time/refresh-permission.sql": "5082ba133757bec8c9a586b29550b747cb0ef44d0e09f89f46d7e220951f7f2c",
+    "tests/integrations/pg-mdm/time/resume-after-pause.sql": "c055e52ce881b8195c93955041305786064262451798d0c40e9f87279dbed1d8",
+    "tests/integrations/pg-mdm/time/resume-stale-version.sql": "ad79d98328830125e4c3f8c718c8c50dbb13d72b20976091d77ddbcf894fb5ac",
+    "tests/integrations/pg-mdm/time/routing.sql": "b6af657d28a255e7ff05e95f2ffefed8427ba7a035b01b1612f2b60395b679ee",
+    "tests/integrations/pg-mdm/time/runtime-gate.sql": "1358ae3e7f9c888fca1d57d5deb53704bb3df0fcbf6222bfac6a08e061c109ad",
+    "tests/integrations/pg-mdm/time/upgrade-rollback.sql": "cc6494bb55f2884a3d856d75cf4c147702c064ad2d13d2610037b3913e903044"
+  },
+  "libraries": [
+    "34a46bbf37c3dcc327d156ae24663af44ca89f8bec0d634dd65f357b7711a4f5  /usr/lib/postgresql/18/lib/pg_react.so",
+    "a3e1602c98ee30c1ee8246abb62c408ec9940070b0dfed0bfbef35e59000c875  /usr/lib/postgresql/18/lib/pg_mdm.so",
+    "3f83ffdc01756e81b04785d173c7e8307327fc6bf09e019f8cc521dcb234fa58  /usr/lib/postgresql/18/lib/pg_trickle.so"
+  ],
+  "mdm_source_file_sha256": "1df0d03aaac9b68c3605c90930a9a029a5ec126803035a0d1e57a1c5eccf4113",
+  "preview_workflow_sha256": "afa0b3299f9e560ee5505a0344d86df5ee0bc08d6058eafe16ce9a9ce61e752d",
+  "images": [
+    {
+      "Id": "sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558",
+      "RepoTags": [
+        "pgreact:auto-final-operator"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T15:57:19.16870772Z",
+      "Config": {
+        "User": "postgres",
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.4-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker",
+          "PG_REACT_INIT_VERSION=0.46.1"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "pg_mdm.candidate_key": "unknown",
+          "pg_mdm.source_revision": "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8",
+          "pg_trickle.source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+          "pg_trickle.source_revision": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673"
+        },
+        "StopSignal": "SIGINT"
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 776708955,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:8db1b4d0e54f2fbc2baf1563e57d88a8e72d3c79a72a38b9e4dee36e84f1d8ce",
+          "sha256:c884d2ab312e92f8127fbc14fd2113f3ab6b13ffdf492e2a665dabf15391fb47",
+          "sha256:4cf9cf4206a1ba211530447377ec4be0de34919a61246c36d8b4b3aafa38cb14",
+          "sha256:b2c303ecff9a3fe2903f3afd1eb674d70884b9ce310a6b781aa96b8f969a8b64",
+          "sha256:fd91933cc794ea107a522db38f47a5b740807fe205b8dc510d16b9a4590f70e4",
+          "sha256:fcd90363802a43b4baec62c14e89495511ff67c3042e263a0629c102a4b5e360",
+          "sha256:e91dda07cc3829bc3fd5f1137843b88e06ae7aba546fc2d91cc89fab4d9a0da9",
+          "sha256:57831b2ad1470741577dd179f9531dccdc918f0f960383fa79eeeaa1a19b3221",
+          "sha256:8e7e6ea472173c82a36c5f6f6e8247909b96868edf6b3377c302db736daedbec",
+          "sha256:c5bf05ce091cace385b8d512b8c35e0bb3da0f4c16690157a9d09a80e39c3774",
+          "sha256:d7af73d8e8b8fc2038f54492315f1cbd3afecc6a3eabbb22e7a7eb3aec7fc786",
+          "sha256:1656a1c17a5338e376a22a359822a894f915a24bf264979a9dc684fd34318c3e",
+          "sha256:388655d910c8af438b3126437c099ca48f7946402df6adbe23d65c6ac8c9b38d",
+          "sha256:35d4558e3835ef78e9040d5749c06142068addb6eb03b757b739b682f3956ffa",
+          "sha256:5ef21cf23f0ff825bbd05e26e6c07429e48ec8108fcc3507547cf76d715ff11a",
+          "sha256:9c7c2fb20c3dfc1867d798f9b96c61d3878c179f4c36526d5b968966471e2e95",
+          "sha256:d4779011b89d9e44ffb5508675209cac96f886cc040693c531c008d7063750a3",
+          "sha256:c07b3669eb9a54f700a7600b7d3e28f2b7f351457ec516814bbfbaff4d9ef170",
+          "sha256:d280cba5b8bebe3f3c3908da99102208853cb2850016073ab00a90b2547b1bfd",
+          "sha256:bf28f1ce8dec60956a9ef3f01e1e37226b43621b6c1f99022afb2ddb7ce97a45",
+          "sha256:5d97d813ad6a6174d2f91a91738244a082860cad438627fa7e02f56cfa9457a1",
+          "sha256:3801e91bfb1e873ead863cb1e9682e5f4a190fc4f75f410cbcc1f5cb1e21f2e2",
+          "sha256:0147e8a56b4e3edca5e359d85944858d551a3c8d693336ddc447f2f97edac668",
+          "sha256:2dcd68f73baf56c71042827d3b37e5cf215aa7433d1fe0b98033896710adcfc8",
+          "sha256:a26a73ffbbc61fbb58638c76c63cf5d8fd98498776906157c2271f08a302841e",
+          "sha256:b81e9b6df4e2b133377865cec30366debe97a412fa37506b26aaba3e5cc72987",
+          "sha256:c2ee835ba6db92a53ec7eee3c4d6d23608955c60d54e54124399dc7c8171cc96",
+          "sha256:c4e9a02ea51e285c1d43fbe79e183ce8e2e0be326bdea2ad0779d7582c74e0e3",
+          "sha256:084ace220a25f266529c2a7f3bf18446b63af9934d663123d6a1dec49ee36fbc",
+          "sha256:78953fc109b8702c8b43b442624746487e2e9d95c08eadc872aae498bb1de54e",
+          "sha256:55654044f669081eaaab60e1b708f92a733ec5fe151869999e29928f6c4332d0",
+          "sha256:994462552a0d8136783e7c7ad06d931ec4c09ac5382a97553ade6003ef92e2f6",
+          "sha256:b1aea3964a63cb8c80139b5e162d5830774d78f2852bbefeb78297e0b538efbc",
+          "sha256:9baa2eab04d612a29897207d35e5427f6fb4c3a6d432e5b21c38b6b7c35d0e22",
+          "sha256:a31af5dc51aba59dc34eba9cd5e447df0db4e53e49e28f1c3f9e95412593ac2e",
+          "sha256:71d9d2a3db985638f6f8c4fd35773996ebee24b58a6f32f6f9ffcdd73b5c2976",
+          "sha256:40f331517b8c5fef845f546e0e2ddaf99d2062a208f51d59a4aaa37e9f6fff69",
+          "sha256:87644dd884903876b0f15ed122d63c262b9718d3ede7bc969a1321e9f06b7600",
+          "sha256:53aeacdb382d3aa35bcb23a44e198caf5fa24fc9de7b635e97b147baacd92b90",
+          "sha256:3b0fc3524ec8420ffd3d2f53058b78f3e683a112150dcad1bc0b7c459f478808"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T15:57:19.324538095Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558",
+        "size": 856
+      },
+      "Identity": {
+        "Pull": [
+          {
+            "Repository": "docker.io/library/pgreact"
+          }
+        ],
+        "Build": [
+          {
+            "Ref": "pi5a9cr0kvgdbas43z1x1mch7",
+            "CreatedAt": "2026-10-26T15:57:19.330929387Z"
+          }
+        ]
+      }
+    },
+    {
+      "Id": "sha256:75062b418aef52e644caa5f55298b78342053a0ccc01b86480360289436353f0",
+      "RepoTags": [
+        "pgreact:mdm-pause-candidate"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:75062b418aef52e644caa5f55298b78342053a0ccc01b86480360289436353f0"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T16:49:21.227137929Z",
+      "Config": {
+        "User": "postgres",
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.4-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "pg_mdm.candidate_key": "unknown",
+          "pg_mdm.source_revision": "5fdee89b589da8fb3ab86157cc716a2aaff8bdf8",
+          "pg_trickle.source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+          "pg_trickle.source_revision": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673"
+        },
+        "StopSignal": "SIGINT"
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 165523144,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:8db1b4d0e54f2fbc2baf1563e57d88a8e72d3c79a72a38b9e4dee36e84f1d8ce",
+          "sha256:c884d2ab312e92f8127fbc14fd2113f3ab6b13ffdf492e2a665dabf15391fb47",
+          "sha256:4cf9cf4206a1ba211530447377ec4be0de34919a61246c36d8b4b3aafa38cb14",
+          "sha256:b2c303ecff9a3fe2903f3afd1eb674d70884b9ce310a6b781aa96b8f969a8b64",
+          "sha256:fd91933cc794ea107a522db38f47a5b740807fe205b8dc510d16b9a4590f70e4",
+          "sha256:fcd90363802a43b4baec62c14e89495511ff67c3042e263a0629c102a4b5e360",
+          "sha256:e91dda07cc3829bc3fd5f1137843b88e06ae7aba546fc2d91cc89fab4d9a0da9",
+          "sha256:57831b2ad1470741577dd179f9531dccdc918f0f960383fa79eeeaa1a19b3221",
+          "sha256:8e7e6ea472173c82a36c5f6f6e8247909b96868edf6b3377c302db736daedbec",
+          "sha256:c5bf05ce091cace385b8d512b8c35e0bb3da0f4c16690157a9d09a80e39c3774",
+          "sha256:d7af73d8e8b8fc2038f54492315f1cbd3afecc6a3eabbb22e7a7eb3aec7fc786",
+          "sha256:1656a1c17a5338e376a22a359822a894f915a24bf264979a9dc684fd34318c3e",
+          "sha256:388655d910c8af438b3126437c099ca48f7946402df6adbe23d65c6ac8c9b38d",
+          "sha256:35d4558e3835ef78e9040d5749c06142068addb6eb03b757b739b682f3956ffa",
+          "sha256:5ef21cf23f0ff825bbd05e26e6c07429e48ec8108fcc3507547cf76d715ff11a",
+          "sha256:27d2522d34bbaa68b77bcf6792429caa302605cd8952ca4ceca21a6d9f2226e1",
+          "sha256:dc568f0acbefab70346f41d2d98690aef1fbd1c69ebaf7a0126dc5867ba20128",
+          "sha256:478f4c6e74dfb358bc38fa11b21065507173e63eeb8e3fdd04c662aeb4117f1d",
+          "sha256:81a7e3fcf855f47976a271c16e8598b85f13b45ecf50623d61df1f8a2c34c6c5",
+          "sha256:54ec945c1a43ad1ce6feee56ac1bb3ae666b5d1fba7332512eddc598ee569cac",
+          "sha256:adc95437ae92a04e0ba607ceeb1f048494140c95603ae0e1477dfb4faceed9d2",
+          "sha256:02d283fb7bd4b81fd04c30d43ed29e57a977f862a456199f68a85f8fab11853b",
+          "sha256:e1728be1109f2f157ee40e51c2089e8960b335510db4701c627141681db5282c",
+          "sha256:a04ec6fb710b342a1a9e433dfaf26a49fe7f18356eab2537c5ec389f0f651d15",
+          "sha256:186a66b15094a692b21ac13f584284fd61983597b64f98cb8015a3346b24e227",
+          "sha256:502484ebcc88b014e2d00d2d38e71d0ef22a5d3c18ce090d4be2cae960959932",
+          "sha256:8bdc9dee098061c14c4c95222f90935a8f3c10ac4086e6b2157d8f9dfd8132d9",
+          "sha256:ba235af216379ed1eef1afc94d3f35dcf894c97d87ce2d35d1db0e8b96e70adf"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T16:49:21.522694929Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:75062b418aef52e644caa5f55298b78342053a0ccc01b86480360289436353f0",
+        "size": 856
+      },
+      "Identity": {
+        "Pull": [
+          {
+            "Repository": "docker.io/library/pgreact"
+          }
+        ],
+        "Build": [
+          {
+            "Ref": "7fem4w3a6q2u0kqhk342m867c",
+            "CreatedAt": "2026-10-26T16:49:21.528095971Z"
+          }
+        ]
+      }
+    },
+    {
+      "Id": "sha256:1f75f500560033cf2249f79a08e0f993dc147a6a69718220f6eda7e65612467f",
+      "RepoTags": [
+        "pgreact:claimed-candidate"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:1f75f500560033cf2249f79a08e0f993dc147a6a69718220f6eda7e65612467f"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T16:52:03.996207129Z",
+      "Config": {
+        "User": "postgres",
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.4-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker",
+          "PG_REACT_INIT_VERSION=0.46.1"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "pg_mdm.candidate_key": "unknown",
+          "pg_mdm.source_revision": "5fdee89b589da8fb3ab86157cc716a2aaff8bdf8",
+          "pg_trickle.source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+          "pg_trickle.source_revision": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673"
+        },
+        "StopSignal": "SIGINT"
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 783736259,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:8db1b4d0e54f2fbc2baf1563e57d88a8e72d3c79a72a38b9e4dee36e84f1d8ce",
+          "sha256:c884d2ab312e92f8127fbc14fd2113f3ab6b13ffdf492e2a665dabf15391fb47",
+          "sha256:4cf9cf4206a1ba211530447377ec4be0de34919a61246c36d8b4b3aafa38cb14",
+          "sha256:b2c303ecff9a3fe2903f3afd1eb674d70884b9ce310a6b781aa96b8f969a8b64",
+          "sha256:fd91933cc794ea107a522db38f47a5b740807fe205b8dc510d16b9a4590f70e4",
+          "sha256:fcd90363802a43b4baec62c14e89495511ff67c3042e263a0629c102a4b5e360",
+          "sha256:e91dda07cc3829bc3fd5f1137843b88e06ae7aba546fc2d91cc89fab4d9a0da9",
+          "sha256:57831b2ad1470741577dd179f9531dccdc918f0f960383fa79eeeaa1a19b3221",
+          "sha256:8e7e6ea472173c82a36c5f6f6e8247909b96868edf6b3377c302db736daedbec",
+          "sha256:c5bf05ce091cace385b8d512b8c35e0bb3da0f4c16690157a9d09a80e39c3774",
+          "sha256:d7af73d8e8b8fc2038f54492315f1cbd3afecc6a3eabbb22e7a7eb3aec7fc786",
+          "sha256:1656a1c17a5338e376a22a359822a894f915a24bf264979a9dc684fd34318c3e",
+          "sha256:388655d910c8af438b3126437c099ca48f7946402df6adbe23d65c6ac8c9b38d",
+          "sha256:35d4558e3835ef78e9040d5749c06142068addb6eb03b757b739b682f3956ffa",
+          "sha256:5ef21cf23f0ff825bbd05e26e6c07429e48ec8108fcc3507547cf76d715ff11a",
+          "sha256:9c7c2fb20c3dfc1867d798f9b96c61d3878c179f4c36526d5b968966471e2e95",
+          "sha256:d4779011b89d9e44ffb5508675209cac96f886cc040693c531c008d7063750a3",
+          "sha256:c07b3669eb9a54f700a7600b7d3e28f2b7f351457ec516814bbfbaff4d9ef170",
+          "sha256:d280cba5b8bebe3f3c3908da99102208853cb2850016073ab00a90b2547b1bfd",
+          "sha256:bf28f1ce8dec60956a9ef3f01e1e37226b43621b6c1f99022afb2ddb7ce97a45",
+          "sha256:5d97d813ad6a6174d2f91a91738244a082860cad438627fa7e02f56cfa9457a1",
+          "sha256:3801e91bfb1e873ead863cb1e9682e5f4a190fc4f75f410cbcc1f5cb1e21f2e2",
+          "sha256:0147e8a56b4e3edca5e359d85944858d551a3c8d693336ddc447f2f97edac668",
+          "sha256:2dcd68f73baf56c71042827d3b37e5cf215aa7433d1fe0b98033896710adcfc8",
+          "sha256:a26a73ffbbc61fbb58638c76c63cf5d8fd98498776906157c2271f08a302841e",
+          "sha256:b81e9b6df4e2b133377865cec30366debe97a412fa37506b26aaba3e5cc72987",
+          "sha256:c2ee835ba6db92a53ec7eee3c4d6d23608955c60d54e54124399dc7c8171cc96",
+          "sha256:c4e9a02ea51e285c1d43fbe79e183ce8e2e0be326bdea2ad0779d7582c74e0e3",
+          "sha256:084ace220a25f266529c2a7f3bf18446b63af9934d663123d6a1dec49ee36fbc",
+          "sha256:78953fc109b8702c8b43b442624746487e2e9d95c08eadc872aae498bb1de54e",
+          "sha256:55654044f669081eaaab60e1b708f92a733ec5fe151869999e29928f6c4332d0",
+          "sha256:994462552a0d8136783e7c7ad06d931ec4c09ac5382a97553ade6003ef92e2f6",
+          "sha256:b1aea3964a63cb8c80139b5e162d5830774d78f2852bbefeb78297e0b538efbc",
+          "sha256:9baa2eab04d612a29897207d35e5427f6fb4c3a6d432e5b21c38b6b7c35d0e22",
+          "sha256:a31af5dc51aba59dc34eba9cd5e447df0db4e53e49e28f1c3f9e95412593ac2e",
+          "sha256:71d9d2a3db985638f6f8c4fd35773996ebee24b58a6f32f6f9ffcdd73b5c2976",
+          "sha256:40f331517b8c5fef845f546e0e2ddaf99d2062a208f51d59a4aaa37e9f6fff69",
+          "sha256:87644dd884903876b0f15ed122d63c262b9718d3ede7bc969a1321e9f06b7600",
+          "sha256:53aeacdb382d3aa35bcb23a44e198caf5fa24fc9de7b635e97b147baacd92b90",
+          "sha256:3b0fc3524ec8420ffd3d2f53058b78f3e683a112150dcad1bc0b7c459f478808",
+          "sha256:b68ceb8208df6369e6e329acf8f7f74cb8f2b2e16efcfb84f0350c5d50707880",
+          "sha256:9542cbdfb21394ca152a8048af1821205f2b27dc73743502b206cd01a95e65a3"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T16:52:04.202484129Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:1f75f500560033cf2249f79a08e0f993dc147a6a69718220f6eda7e65612467f",
+        "size": 856
+      },
+      "Identity": {
+        "Build": [
+          {
+            "Ref": "r794cmz4v7d1hcvk5ffq04ixx",
+            "CreatedAt": "2026-10-26T16:52:04.209880838Z"
+          }
+        ]
+      }
+    }
+  ],
+  "local_joint_image_recipe": "FROM pgreact:mdm-pause-candidate AS mdm\nFROM pgreact:auto-final-operator\nUSER root\nCOPY --from=mdm /usr/lib/postgresql/18/lib/pg_mdm.so /usr/lib/postgresql/18/lib/pg_mdm.so\nCOPY --from=mdm /usr/share/postgresql/18/extension/pg_mdm* /usr/share/postgresql/18/extension/\nUSER postgres\nLABEL pg_mdm.source_revision=5fdee89b589da8fb3ab86157cc716a2aaff8bdf8\n",
+  "commands": [
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:auto-final-operator /tmp/pgreact-claimed-native-before --claimed-work",
+      "exit_code": 1,
+      "result": "Native typed React delivery applies ESCALATE after authorized pause acknowledged; full original vectors retained."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:claimed-candidate /tmp/pgreact-claimed-hold-before --claimed-work",
+      "cwd": "/tmp/pgreact-claimed-resume-baseline",
+      "exit_code": 1,
+      "result": "Isolated main checkout plus final regression, with original hold logic and fixed MDM. Complete fresh_after_pause snapshot proves old BINDING_PAUSED hold blocks fresh eligible work."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:claimed-candidate /tmp/pgreact-claimed-final-artifact --claimed-work",
+      "exit_code": 0,
+      "result": "All seven final named deterministic pause/edit/replacement, fresh-work and cross-key gates pass."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:claimed-candidate /tmp/pgreact-claimed-final-repeat --claimed-work",
+      "exit_code": 0,
+      "result": "Independent fresh database repeated full matrix successfully before final named check metadata was added."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:claimed-candidate /tmp/pgreact-claimed-recurrence --autonomous-recurrence",
+      "exit_code": 0,
+      "result": "Merged real autonomous recurrence, non-superuser diagnostics and cold restart remain passing."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:claimed-candidate /tmp/pgreact-claimed-full",
+      "exit_code": 1,
+      "result": "Unchanged upstream bootstrap fails at /tests/e2e.sql:3544, backend killed by signal 9, before full React cases. Raw failure retained."
+    },
+    {
+      "command": "rtk cargo test --locked",
+      "exit_code": 0,
+      "result": "8 passed"
+    },
+    {
+      "command": "rtk cargo fmt -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk cargo clippy --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk bash tests/current-docs.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk bash tests/workflow-syntax.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk docker run --rm --volume /Users/grove/projects/pg-react:/repo:ro --workdir /repo rhysd/actionlint:1.7.7 .github/workflows/mdm-pause-barrier-preview.yml",
+      "exit_code": 0
+    }
+  ],
+  "local_notes": [
+    "MDM local library was built from base 5fdee89 plus the two recorded SQL lock changes; final MDM PR commit 40e9cb7 has the identical production Rust source checksum. Its native workflow rebuilds the exact commit.",
+    "Joint local image reuses original React and selected producer libraries and overlays MDM repair. Adapter SQL is loaded from the read-only current checkout; per-run source/library hashes distinguish every run.",
+    "amd64 binaries run under aarch64 emulation on a 10-CPU, 8319504384-byte Docker host. No performance or complete resource qualification is claimed.",
+    "MDM upstream formatting, clippy, all-target Rust and cargo-pgrx tests, security/upgrade checks and frozen SQL byte comparison passed. Original network-isolation lint failure and independent SQL before/after proof are retained in MDM PR #22 evidence.",
+    "No default dependency pin, workload/threshold, fixture or benchmark policy was changed to hide a failure. The new workflow is an exact-source preview, not release-pin adoption."
+  ],
+  "artifacts": [
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-claimed-work/passing-runs.json.gz",
+      "sha256": "189c91ab108e44b4f9ddb9d660f98302db834525bee3e26ce3b94d818fca960c"
+    },
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-claimed-work/retained-failures.json.gz",
+      "sha256": "b9fef3341e7c7cf691ff5c1997d9c114a72eecbecc2b592d2404097efd143fb9"
+    },
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-claimed-work/validation-logs.json.gz",
+      "sha256": "93759553cc73f68c9167af7394cce536ef52908cd2835fee04d057cea4f477c6"
+    }
+  ],
+  "release_qualified": false,
+  "remaining_work_qualification_only": false,
+  "remaining": [
+    "Exact merged MDM artifact adoption and full packaged native CI",
+    "Broader uncertain-commit/crash and overlapping replacement/privilege-revocation orderings",
+    "Logical restore, clean physical clone and same-OID environment activation guarantees",
+    "Complete public diagnostic matrix and frozen paired workload/resource/recovery/retention qualification",
+    "Independent review; #8/#11/#12 and MDM #5 remain open"
+  ]
+}

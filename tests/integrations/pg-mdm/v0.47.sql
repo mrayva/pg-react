@@ -124,7 +124,14 @@ DECLARE
       {"action":null,"case_key":7,"decision":"NO_OP","priority":null,"review_id":"40000000-0000-4000-8000-000000000007","competitors":[{"queue":"priority","action":"ASSIGN_QUEUE","priority":1,"entity_name":null,"reason_code":"POSSIBLE_DUPLICATE"}],"explanation":{"case_key":7,"decision":"NO_OP","review_id":"40000000-0000-4000-8000-000000000007","competitors":[{"queue":"priority","action":"ASSIGN_QUEUE","priority":1,"entity_name":null,"reason_code":"POSSIBLE_DUPLICATE"}],"selected_queue":null,"applicable":true,"reason":"selected queue matches current queue","pending_stewardship":false,"manual_assignment_protected":false},"reason_code":"POSSIBLE_DUPLICATE","current_queue":"priority","selected_queue":null,"policy_revision":"policy-1"}
     ]$expected$::jsonb;
 BEGIN
-    SELECT jsonb_agg(to_jsonb(result) ORDER BY result.case_key)
+    -- Keep this historical transcript pinned to its original explanation fields.
+    SELECT jsonb_agg(
+        to_jsonb(result) || jsonb_build_object(
+            'explanation', result.explanation - ARRAY[
+                'captured_at', 'due_at', 'deadline_due',
+                'current_escalation_level', 'requested_escalation_level'
+            ])
+        ORDER BY result.case_key)
     INTO actual
     FROM pgreact_mdm.route_cases('mdm_fixture.policy_cases_v1'::regclass, 'policy-1') AS result;
     IF actual IS DISTINCT FROM expected THEN
@@ -389,5 +396,7 @@ BEGIN
     END IF;
 END
 $$;
+
+\ir time/routing.sql
 
 SELECT 'v0.47 read-only policy package passed' AS result;

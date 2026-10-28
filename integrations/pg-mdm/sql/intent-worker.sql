@@ -127,7 +127,21 @@ SELECT request.work_ref,
        case_row.publication_revision AS current_publication_revision,
        CASE WHEN hold.reason_code IS NULL THEN 'NONE' ELSE 'HELD' END AS remediation_state,
        hold.reason_code AS remediation_reason_code,
-       hold.held_at AS remediation_at
+       hold.held_at AS remediation_at,
+       CASE WHEN request.request_body ->> 'action' = 'SET_DUE_AT'
+            THEN (request.request_body #>> '{arguments,due_at}')::timestamptz
+       END AS requested_due_at,
+       case_row.due_at AS current_due_at,
+       CASE WHEN request.request_body ->> 'action' = 'ESCALATE'
+            THEN (request.request_body #>> '{arguments,level}')::integer
+       END AS requested_escalation_level,
+       CASE WHEN request.request_body ->> 'action' = 'ESCALATE'
+                 AND receipt.outcome = 'APPLIED_CONTROL'
+            THEN (receipt.control ->> 'escalation_level')::integer
+       END AS applied_escalation_level,
+       case_row.escalation_level AS current_escalation_level,
+       case_row.manual_assignment_protected AS current_manual_assignment_protected,
+       case_row.pending_stewardship AS current_pending_stewardship
 FROM pgreact_mdm.intent_requests AS request
 JOIN pgreact_mdm.policy_intent_bindings AS binding USING (binding_id)
 LEFT JOIN LATERAL (
@@ -153,11 +167,12 @@ LEFT JOIN LATERAL (
       AND saved_hold.policy_revision = request.policy_revision
       AND saved_hold.action = request.request_body ->> 'action'
       AND saved_hold.expected_action_revision = request.action_revision
+      AND (saved_hold.reason_code <> 'BINDING_PAUSED' OR attempt.outcome = 'BINDING_PAUSED')
     ORDER BY saved_hold.held_at DESC
     LIMIT 1
 ) AS hold ON true;
 COMMENT ON VIEW pgreact_mdm.delivery_inspection_v1 IS
-    'Versioned read-only delivery, MDM receipt, policy, case, and remediation inspection.';
+    'Versioned read-only delivery, MDM receipt, policy, deadline, escalation, case, and remediation inspection.';
 REVOKE ALL ON pgreact_mdm.delivery_inspection_v1 FROM PUBLIC;
 GRANT SELECT ON pgreact_mdm.delivery_inspection_v1 TO PUBLIC;
 
@@ -430,6 +445,34 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION pgreact_mdm.require_recovery_capabilities(binding_id uuid)
+RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $function$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pgreact_mdm.policy_intent_bindings b
+        JOIN pgreact_mdm.policy_intent_packages p USING (policy_revision)
+        JOIN mdm_steward.policy_bindings_v1 m USING (binding_id)
+        JOIN mdm_internal.entities e USING (entity_id)
+        WHERE b.binding_id = $1 AND b.enabled AND m.replaced_by IS NULL
+          AND pg_catalog.pg_has_role(session_user, b.entity_execution_role, 'MEMBER')
+          AND e.entity_name = b.entity_name AND e.execution_role_name = b.entity_execution_role::text
+          AND m.automation_role_name = 'pgreact_mdm_worker'
+          AND m.binding_version = b.binding_version
+          AND m.policy_digest = b.policy_digest AND p.policy_digest = b.policy_digest
+          AND m.allowed_actions @> b.allowed_actions AND b.allowed_actions @> m.allowed_actions
+          AND m.allowed_queues::text[] @> b.allowed_queues AND b.allowed_queues @> m.allowed_queues::text[]
+          AND m.max_due_interval IS NOT DISTINCT FROM b.max_due_interval
+          AND m.max_escalation_level = b.max_escalation_level
+    ) THEN
+        RAISE EXCEPTION 'MDM_RECOVERY_BINDING_MISMATCH: binding must match the retained MDM policy';
+    END IF;
+    PERFORM pgreact_internal.require_pgtrickle_runtime();
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION pgreact_mdm.reconcile_intent_binding(
     binding_id uuid,
     expected_runtime_version bigint
@@ -449,6 +492,7 @@ BEGIN
     IF binding.entity_execution_role <> current_user::name THEN
         RAISE EXCEPTION 'MDM_BINDING_ACTOR: caller does not own binding %', $1;
     END IF;
+    PERFORM pgreact_mdm.require_recovery_capabilities($1);
     runtime_version := mdm_admin.set_policy_binding_state(
         $1, $2, 'active', 'pg-react M2 runtime reconciliation');
     PERFORM pgreact_mdm.configure_policy_worker_privileges();
@@ -485,6 +529,40 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION pgreact_mdm.policy_runtime_ready()
+RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $function$
+DECLARE ready boolean;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pgreact_mdm.policy_intent_bindings WHERE enabled) THEN
+        RETURN true;
+    END IF;
+    IF to_regprocedure('mdm_internal.policy_runtime_epoch()') IS NULL THEN
+        RETURN false;
+    END IF;
+    EXECUTE 'SELECT mdm_internal.policy_runtime_epoch() IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM pgreact_mdm.policy_intent_bindings b
+        LEFT JOIN mdm_internal.policy_binding_runtime r USING (binding_id)
+        LEFT JOIN pgreact_mdm.policy_intent_runtime a USING (binding_id)
+        WHERE b.enabled AND (r.binding_id IS NULL OR
+            r.activation_epoch IS DISTINCT FROM mdm_internal.policy_runtime_epoch() OR
+            r.database_oid IS DISTINCT FROM (SELECT oid FROM pg_database WHERE datname=current_database()) OR
+            r.automation_role_oid IS DISTINCT FROM (SELECT oid FROM pg_roles WHERE rolname=''pgreact_mdm_worker'') OR
+            (r.state = ''active'' AND (a.binding_id IS NULL OR
+                a.database_oid IS DISTINCT FROM r.database_oid OR a.worker_role_oid IS DISTINCT FROM r.automation_role_oid OR
+                a.runtime_version IS DISTINCT FROM r.runtime_version))))'
+        INTO ready;
+    RETURN COALESCE(ready, false);
+END
+$function$;
+GRANT CREATE ON SCHEMA pgreact_mdm TO mdm_helper_owner;
+ALTER FUNCTION pgreact_mdm.policy_runtime_ready() OWNER TO mdm_helper_owner;
+REVOKE CREATE ON SCHEMA pgreact_mdm FROM mdm_helper_owner;
+REVOKE ALL ON FUNCTION pgreact_mdm.policy_runtime_ready() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION pgreact_mdm.policy_runtime_ready() TO pgreact_mdm_worker;
+
 CREATE OR REPLACE VIEW pgreact_mdm.authorized_policy_cases_v1 AS
 SELECT policy_case.*
 FROM mdm_steward.policy_cases_v1 AS policy_case
@@ -512,9 +590,17 @@ BEGIN
     INSERT INTO pgreact_mdm.intent_case_identities(entity_name, case_key)
     SELECT binding.entity_name, policy_case.case_key
     FROM pgreact_mdm.policy_intent_bindings AS binding
+    JOIN pgreact_mdm.policy_intent_runtime AS runtime USING (binding_id)
     JOIN pgreact_mdm.authorized_policy_cases_v1 AS policy_case
       ON policy_case.entity_name = binding.entity_name
     WHERE binding.enabled
+      AND runtime.database_oid = (SELECT oid FROM pg_catalog.pg_database WHERE datname = current_database())
+      AND runtime.worker_role_oid = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'pgreact_mdm_worker')
+      AND NOT EXISTS (
+          SELECT 1 FROM pgreact_mdm.intent_case_identities AS existing
+          WHERE existing.entity_name = binding.entity_name
+            AND existing.case_key = policy_case.case_key)
+    ORDER BY binding.entity_name, policy_case.case_key
     ON CONFLICT (entity_name, case_key) DO NOTHING;
     GET DIAGNOSTICS inserted = ROW_COUNT;
     RETURN inserted;
@@ -652,6 +738,9 @@ DECLARE
     validation_count integer;
     conflict boolean := false;
 BEGIN
+    IF NOT pgreact_mdm.policy_runtime_ready() THEN
+        RAISE EXCEPTION 'MDM_ACTIVATION_REQUIRED: explicit reconciliation is required before delivery';
+    END IF;
     SELECT * INTO STRICT binding
     FROM pgreact_mdm.policy_intent_bindings
     WHERE pgreact_mdm.policy_intent_bindings.binding_id = (candidate ->> 'binding_id')::uuid
@@ -748,7 +837,8 @@ BEGIN
             WHERE hold.binding_id = binding.binding_id
               AND hold.case_key = policy_case.case_key
               AND hold.policy_revision = binding.policy_revision
-              AND hold.expected_action_revision = policy_case.action_revision) THEN
+              AND hold.expected_action_revision = policy_case.action_revision
+              AND hold.reason_code <> 'BINDING_PAUSED') THEN
             RETURN;
         END IF;
         INSERT INTO pgreact_mdm.intent_requests(
@@ -1082,6 +1172,9 @@ BEGIN
       AND NOT rolsuper AND NOT rolbypassrls;
     IF NOT pg_catalog.pg_has_role(runner.oid, 'pgreact_mdm_worker', 'SET') THEN
         RAISE EXCEPTION 'MDM_RUNNER_ROLE: session user cannot set the policy worker role';
+    END IF;
+    IF NOT pgreact_mdm.policy_runtime_ready() THEN
+        RETURN NULL;
     END IF;
     SELECT * INTO STRICT version
     FROM pgreact_internal.rule_versions

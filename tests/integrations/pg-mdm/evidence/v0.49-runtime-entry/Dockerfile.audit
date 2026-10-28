@@ -1,0 +1,20 @@
+FROM pg-trickle-1168:arm64-sdk AS sdk
+USER root
+WORKDIR /build/mdm
+COPY mdm/ ./
+RUN --mount=type=cache,id=pgreact11-registry,target=/usr/local/cargo/registry --mount=type=cache,id=pgreact11-mdm-target,target=/build/mdm/target cargo pgrx package --pg-config /usr/bin/pg_config --out-dir /package-mdm
+WORKDIR /build/react
+COPY react/ ./
+RUN --mount=type=cache,id=pgreact11-registry,target=/usr/local/cargo/registry --mount=type=cache,id=pgreact11-react-target,target=/build/react/target cargo build --locked --release --features pg18 && cp target/release/libpg_react.so /libpg_react.so
+WORKDIR /build/trickle
+COPY trickle/ ./
+RUN --mount=type=cache,id=pgreact11-registry,target=/usr/local/cargo/registry --mount=type=cache,id=pgreact11-git,target=/usr/local/cargo/git --mount=type=cache,id=pgreact11-trickle-target,target=/build/trickle/target CARGO_BUILD_JOBS=2 cargo pgrx package --pg-config /usr/bin/pg_config --out-dir /package-trickle
+FROM postgres:18.6
+COPY --from=sdk /package-mdm/ /
+COPY --from=sdk /package-trickle/ /
+COPY --from=sdk /libpg_react.so /usr/lib/postgresql/18/lib/pg_react.so
+COPY react/sql/ /usr/share/postgresql/18/extension/
+COPY react/pg_react.control /usr/share/postgresql/18/extension/
+COPY mdm/tests/ /tests/
+COPY mdm/sql/ /sql/
+LABEL pg_mdm.source_revision=06471e647ee54a80973fb5ad6709830f9955dbff pg_trickle.source_revision=d8bb8eb5d45c5c9982e173e88914037433a1ee05 pg_react.source_revision=b0ad5c4c8d2a617120d680c2f4ecac80fbb742ea

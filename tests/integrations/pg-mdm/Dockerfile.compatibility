@@ -1,0 +1,6 @@
+# Local qualification layer; the manifest pins the retained base image ID.
+ARG JOINT_IMAGE=pgreact:issue11-joint-gate
+FROM ${JOINT_IMAGE}
+COPY sql/ /usr/share/postgresql/18/extension/
+COPY pg_react.control /usr/share/postgresql/18/extension/
+LABEL pg_react.sql_base_revision=35b340216f4767fccf2f0fe1abd409016b5f3525

@@ -3,4 +3,4 @@
 sql/pg_react--0.46.0.sql
 sql/current/claim.sql
 sql/current/worker-grants.sql
-sql/current/pgtrickle-0108x.sql
+sql/current/pgtrickle.sql

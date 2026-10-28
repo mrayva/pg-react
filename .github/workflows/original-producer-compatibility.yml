@@ -1,0 +1,138 @@
+name: Original-pin producer compatibility (historical, nonblocking)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mdm_pinned_producer:
+    name: Original-pin history (nonblocking)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: trickle-labs/pg-mdm
+          ref: 6ad23ca11cb956f264e93e46a6351d32ea4a1ca8
+          path: .producer/mdm
+      - name: Record and enforce exact pinned MDM source identity
+        run: |
+          set -euo pipefail
+          mkdir -p producer-evidence
+          test "$(git -C .producer/mdm rev-parse HEAD)" = "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8"
+          git -C .producer/mdm rev-parse HEAD > producer-evidence/mdm-source-revision.txt
+          git rev-parse HEAD > producer-evidence/react-source-revision.txt
+          (cd .producer/mdm && git archive --format=tar HEAD) | sha256sum > producer-evidence/mdm-source-archive-sha256.txt
+          sha256sum .producer/mdm/src/api/policy_intent.rs \
+            .producer/mdm/tests/e2e_policy.sql \
+            tests/integrations/pg-mdm/time/resume-stale-version.sql \
+            > producer-evidence/source-file-sha256.txt
+      - name: Build the exact pinned candidate producer
+        run: |
+          mkdir -p producer-evidence
+          docker build -f .producer/mdm/tests/Dockerfile.e2e \
+            --build-arg PG_MDM_SOURCE_REVISION=6ad23ca11cb956f264e93e46a6351d32ea4a1ca8 \
+            --build-arg PG_TRICKLE_REVISION=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --build-arg PG_TRICKLE_SHA256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            --label pg_trickle.source_revision=c7e257e551d6f6bacb84ecfe6f5daf7637c53673 \
+            --label pg_trickle.source_archive_sha256=d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27 \
+            -t pgreact:mdm-pinned .producer/mdm > producer-evidence/mdm-build.log 2>&1
+      - name: Build React on the pinned producer
+        run: |
+          docker build -f tests/integrations/pg-mdm/Dockerfile.v0.48 \
+            --build-arg PG_MDM_IMAGE=pgreact:mdm-pinned \
+            -t pgreact:producer-compatibility . > producer-evidence/react-build.log 2>&1
+      - name: Qualify autonomous MDM recurrence and cold restart
+        id: legacy_1
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > producer-evidence/historical-1.exit' EXIT
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/autonomous-recurrence --autonomous-recurrence
+          python3 -c 'import json; o=json.load(open("producer-evidence/autonomous-recurrence/observations.json")); assert o["entry_decision"]=="FOCUSED_AUTONOMOUS_RECURRENCE_QUALIFIED", o.get("failure"); e=o["autonomous_recurrence"]; assert e["exact"] and e["old_receipts_unchanged"] and e["no_replay_across_cycles_and_restart"]'
+      - name: Qualify admission, refresh permissions and actual idle delivery
+        id: legacy_2
+        if: steps.legacy_1.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > producer-evidence/historical-2.exit' EXIT
+          python3 tests/integrations/pg-mdm/time/audit.py pgreact:producer-compatibility producer-evidence/runtime
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"future-idle-mdm-receipt","stale-operator-runtime-version"} <= passed, {"passed":passed,"failure":o.get("failure")}; assert o["stale_operator_runtime_version"]["exact"] and o["stale_operator_runtime_version"]["complete_state_unchanged"]'
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert {"managed-cycle-admission-bound","active-template-clone-guard","physical-restore-guard","physical-restore-reconcile-replay"} <= passed, o.get("failure"); assert o["active_template_clone"]["unchanged_before_activation"] and o["physical_recovery"]["unchanged_before_and_after_explicit_reconciliation"]'
+          python3 -c 'import json; o=json.load(open("producer-evidence/runtime/observations.json")); assert o["entry_decision"]=="QUALIFICATION_INCOMPLETE"; assert o["core_upgrade_rollback"]["sqlstate"]==o["mdm_upgrade_rollback"]["sqlstate"]=="P0001"; assert o["post_resume_activation"]["denied_once"] and o["post_resume_activation"]["controls_unchanged"]'
+      - name: Qualify copied pending escalation and explicit recovery
+        id: legacy_3
+        if: steps.legacy_2.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > producer-evidence/historical-3.exit' EXIT
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/pending-recovery --pending-recovery
+          python3 -c 'import json; o=json.load(open("producer-evidence/pending-recovery/observations.json")); passed={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_PENDING_RECOVERY_QUALIFIED", o.get("failure"); assert {"pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432"} <= passed; assert all(o[n]["no_replay"] for n in ("pending-recovery-s1_clone-5432","pending-recovery-s1_idle-55432")); assert o["pending-recovery-s1_idle-55432"]["background_worker"]'
+      - name: Qualify real downtime crossing an undelivered deadline
+        id: legacy_4
+        if: steps.legacy_3.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > producer-evidence/historical-4.exit' EXIT
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/outage-runtime --outage
+          python3 -c 'import json; o=json.load(open("producer-evidence/outage-runtime/observations.json")); names={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_OUTAGE_QUALIFIED"; assert {"outage-deadline-catchup-single-case","future-idle-mdm-receipt","post-delivery-idle-quiescence","post-delivery-restart-no-replay"} <= names, names; assert o["outage_across_deadline"]["one_case_caught_up"]'
+      - name: Qualify two-case managed catch-up after a real outage
+        id: legacy_5
+        if: steps.legacy_4.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > producer-evidence/historical-5.exit' EXIT
+          python3 tests/integrations/pg-mdm/time/audit.py \
+            pgreact:producer-compatibility producer-evidence/two-case-outage --multi-outage
+          python3 -c 'import json; o=json.load(open("producer-evidence/two-case-outage/observations.json")); checks={c["name"] for c in o["checks"] if c["result"]=="passed"}; assert o["entry_decision"]=="FOCUSED_TWO_CASE_OUTAGE_QUALIFIED", o.get("failure"); assert "two-case-real-outage-drain-and-no-replay" in checks, checks; e=o["multi_outage"]; assert e["exact"] and e["no_replay_across_cycles_and_restart"] and len(e["two_receipts"])==2 and e["configured_limits"]["pg_react.batch_size"]=="1"; assert 0 < e["two_case_drain_seconds"] <= 150 and e["observed_receipt_progress"][-1]["receipt_count"]==2; assert e["per_cycle_claim_bound"]["managed_to_claim_bound_verified"] and e["per_cycle_claim_bound"]["per_cycle_configured_claim_limit"]==1'
+      - name: Record nonblocking historical outcomes
+        if: ${{ !cancelled() && steps.legacy_1.outcome != '' }}
+        run: |
+          printf 'Historical old-MDM tests are nonblocking and are not release qualification.\n' > producer-evidence/historical-outcomes.txt
+          printf 'recurrence=%s full=%s pending=%s outage=%s multi-outage=%s\n' '${{ steps.legacy_1.outcome }}' '${{ steps.legacy_2.outcome }}' '${{ steps.legacy_3.outcome }}' '${{ steps.legacy_4.outcome }}' '${{ steps.legacy_5.outcome }}' >> producer-evidence/historical-outcomes.txt
+          cat producer-evidence/historical-outcomes.txt >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '=failure' producer-evidence/historical-outcomes.txt; then
+            printf '::warning::Historical compatibility failed; see the artifact and raw exits. This is not release qualification.\n'
+          fi
+      - name: Record and compare inherited packaged shared libraries
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          : > producer-evidence/executable-sha256.txt
+          for profile in mdm-pinned producer-compatibility; do
+            container="$(docker create "pgreact:$profile")"
+            for module in pg_mdm pg_trickle; do
+              docker cp "$container:/usr/lib/postgresql/18/lib/$module.so" "$tmp/$profile-$module.so"
+              sha256sum "$tmp/$profile-$module.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
+            done
+            if [ "$profile" = producer-compatibility ]; then
+              docker cp "$container:/usr/lib/postgresql/18/lib/pg_react.so" "$tmp/$profile-pg_react.so"
+              sha256sum "$tmp/$profile-pg_react.so" | sed "s#  $tmp/#  $profile/#" >> producer-evidence/executable-sha256.txt
+            fi
+            docker rm "$container" >/dev/null
+          done
+          for module in pg_mdm pg_trickle; do
+            cmp "$tmp/mdm-pinned-$module.so" "$tmp/producer-compatibility-$module.so"
+          done
+      - name: Retain exact image identity
+        if: always()
+        run: |
+          set -euo pipefail
+          docker image inspect pgreact:mdm-pinned pgreact:producer-compatibility > producer-evidence/images.json
+          sha256sum producer-evidence/*.txt producer-evidence/images.json > producer-evidence/identity-manifest-sha256.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: original-pin-producer-compatibility
+          path: producer-evidence/

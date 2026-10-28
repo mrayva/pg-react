@@ -1,0 +1,13 @@
+{
+  "command": "python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr30-newer-producer-probe OUTPUT --clean-clone",
+  "react_source": "094fa659ce7eb571e179a765564af2fb916379ba",
+  "audit_sha256": "c6633a114510b2fea463838052d39d2649a00310fbe4b8b4c360189314d50633",
+  "image": "sha256:a0855cbd661820d0243236d97b1764417f3b6cbf25eccb1db3ed08171d9db2fc",
+  "mdm_source": "49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee",
+  "pg_trickle_image": "pgtrickle-1250:pr1258-47e088a",
+  "pg_trickle_library_sha256": "c0db2909d3eba45dcf757b915932dca4dd115f6fb4d1538da44ce1dbf2856392",
+  "exit": 0,
+  "result": "Clean physical clone remained fenced before activation and bounded resumption passed.",
+  "scope": "Local amd64-emulated diagnostic with non-pinned producer; not merged-artifact or release qualification.",
+  "archive_sha256": "e1987277fe07251055aa8400344e367fc2dbdc188fb322b0d37549b8baf31b98"
+}

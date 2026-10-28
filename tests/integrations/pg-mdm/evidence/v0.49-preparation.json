@@ -1,0 +1,26 @@
+{
+  "scope": "Issue #11 independent explicit-time routing preparation only",
+  "date": "2026-10-19",
+  "base_commit": "070646115c48fdb3494e1744668890acb2328a97",
+  "postgres_image": "postgres@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336",
+  "database": "routing_final",
+  "command": "psql -XAtq -U postgres -d routing_final -v ON_ERROR_STOP=1 -f /work/tests/integrations/pg-mdm/v0.47.sql -f /work/tests/integrations/pg-mdm/v0.48-codec.sql",
+  "exit_code": 0,
+  "summary": [
+    "v0.47 normal-role comparison passed",
+    "v0.49 explicit-time routing and comparison: PASS",
+    "v0.47 read-only policy package passed",
+    "v0.48 canonical digest, request-key, body, and retry checks: PASS"
+  ],
+  "source_sha256": {
+    "integrations/pg-mdm/sql/routing.sql": "67e044fe60bd5e6c9c40a83a97966c3dbe71a036f1f60d0803559dd38ca88b0c",
+    "integrations/pg-mdm/sql/comparison.sql": "865d48a66a36a7e663ca9de2fc2772d19cb03de157c9146a8f479e165d96cb1b",
+    "tests/integrations/pg-mdm/time/routing.sql": "bef4d43ff378680f762c6eb9c116b555859e604c57ebfc522e33ccbeaa38c4c7",
+    "tests/integrations/pg-mdm/v0.47.sql": "3ab189c058cf2a24000a5e74cdf91d3b5b552bda3f718c8056eac8c92500dcd1",
+    "tests/integrations/pg-mdm/v0.48-codec.sql": "ef250594a0d9441007253023dfe25d37911d093c713b0d9dc60193e7d2e8653c"
+  },
+  "joint_artifacts": null,
+  "mdm_receipt_fixture_gate": "BLOCKED: exact executable negative fixtures must be committed and qualified in pg-mdm",
+  "managed_delivery_acceptance": "NOT RUN; managed bounded escalation remains incomplete",
+  "release_qualification": "NOT CLAIMED"
+}

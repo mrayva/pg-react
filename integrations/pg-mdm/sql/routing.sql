@@ -1,7 +1,8 @@
 CREATE OR REPLACE FUNCTION pgreact_mdm.route_cases(
     source_relation regclass,
     target_revision text,
-    target_entity text
+    target_entity text,
+    captured_at timestamptz
 )
 RETURNS TABLE(
     case_key bigint,
@@ -23,6 +24,9 @@ AS $function$
 DECLARE
     package jsonb;
 BEGIN
+    IF captured_at IS NULL OR NOT isfinite(captured_at) THEN
+        RAISE EXCEPTION 'MDM_ROUTE_CAPTURE: captured_at must be finite and non-null';
+    END IF;
     PERFORM pgreact_mdm.assert_source(source_relation);
     IF pgreact_mdm.validate_inputs(source_relation) ->> 'state' <> 'valid' THEN
         RAISE EXCEPTION 'MDM_INPUT_INVALID: %',
@@ -104,8 +108,8 @@ BEGIN
                        WHEN s.case_key IS NULL THEN 'NO_CANDIDATE'
                        WHEN s.best_count > 1 THEN 'AMBIGUOUS'
                        WHEN s.best_action = 'ESCALATE'
-                        AND (c.due_at IS NULL OR c.due_at > statement_timestamp()
-                             OR s.best_level <> c.escalation_level + 1) THEN 'INELIGIBLE'
+                        AND (c.due_at IS NULL OR c.due_at > $4
+                             OR s.best_level::bigint <> c.escalation_level::bigint + 1) THEN 'INELIGIBLE'
                        WHEN s.best_action = 'ESCALATE' THEN 'WINNER'
                        WHEN c.manual_assignment_protected THEN 'PROTECTED'
                        WHEN c.assigned_queue IS NOT DISTINCT FROM s.best_queue THEN 'NO_OP'
@@ -128,13 +132,26 @@ BEGIN
                     'selected_queue', CASE WHEN d.decision = 'WINNER' AND d.best_action = 'ASSIGN_QUEUE'
                                            THEN d.best_queue ELSE NULL END,
                    'applicable', c.status = 'open' AND NOT c.pending_stewardship,
-                   'reason', CASE d.decision
-                       WHEN 'WINNER' THEN 'best allowed candidate'
-                       WHEN 'AMBIGUOUS' THEN 'equal best priorities'
-                       WHEN 'NO_CANDIDATE' THEN 'no applicable route candidate'
-                       WHEN 'PROTECTED' THEN 'manual assignment is protected'
-                       WHEN 'NO_OP' THEN 'selected queue matches current queue'
+                   'reason', CASE
+                       WHEN c.status <> 'open' THEN 'case is not open'
+                       WHEN c.pending_stewardship THEN 'stewardship is pending'
+                       WHEN d.decision = 'WINNER' THEN 'best allowed candidate'
+                       WHEN d.decision = 'AMBIGUOUS' THEN 'equal best priorities'
+                       WHEN d.decision = 'NO_CANDIDATE' THEN 'no applicable route candidate'
+                       WHEN d.decision = 'PROTECTED' THEN 'manual assignment is protected'
+                       WHEN d.decision = 'NO_OP' THEN 'selected queue matches current queue'
+                       WHEN d.best_action = 'ESCALATE' AND c.due_at IS NULL THEN 'no deadline is set'
+                       WHEN d.best_action = 'ESCALATE' AND c.due_at > $4 THEN 'deadline has not been reached'
+                       WHEN d.best_action = 'ESCALATE' THEN 'requested level is not the next permitted level'
                        ELSE 'case is not eligible for automation'
+                   END,
+                   'captured_at', $4,
+                   'due_at', c.due_at,
+                   'deadline_due', c.due_at IS NOT NULL AND c.due_at <= $4,
+                   'current_escalation_level', c.escalation_level,
+                   'requested_escalation_level', CASE
+                       WHEN d.best_action = 'ESCALATE' AND d.best_count = 1 THEN d.best_level
+                       ELSE NULL
                    END,
                    'manual_assignment_protected', c.manual_assignment_protected,
                     'pending_stewardship', c.pending_stewardship,
@@ -146,8 +163,33 @@ BEGIN
         JOIN decided AS d USING (case_key)
         ORDER BY c.case_key
     $query$, source_relation)
-    USING package, target_revision, target_entity;
+    USING package, target_revision, target_entity, captured_at;
 END
+$function$;
+
+CREATE OR REPLACE FUNCTION pgreact_mdm.route_cases(
+    source_relation regclass,
+    target_revision text,
+    target_entity text
+)
+RETURNS TABLE(
+    case_key bigint,
+    review_id uuid,
+    policy_revision text,
+    reason_code text,
+    current_queue name,
+    selected_queue name,
+    decision text,
+    action text,
+    priority integer,
+    competitors jsonb,
+    explanation jsonb
+)
+LANGUAGE SQL
+STABLE
+SET search_path = pg_catalog, pg_temp
+AS $function$
+    SELECT * FROM pgreact_mdm.route_cases($1, $2, $3, statement_timestamp())
 $function$;
 
 CREATE OR REPLACE FUNCTION pgreact_mdm.route_cases(
@@ -178,3 +220,5 @@ COMMENT ON FUNCTION pgreact_mdm.route_cases(regclass, text, text) IS
     'v0.47 deterministic MDM routing explanation; ties are ambiguous and never lexical winners';
 COMMENT ON FUNCTION pgreact_mdm.route_cases(regclass, text) IS
     'v0.47 deterministic routing across the complete supplied policy relation';
+COMMENT ON FUNCTION pgreact_mdm.route_cases(regclass, text, text, timestamptz) IS
+    'Explicit-time routing; due_at <= captured_at permits only the configured next escalation level. This read does not authorize MDM delivery.';

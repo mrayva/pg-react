@@ -1,0 +1,10 @@
+{
+  "react": "4cc522c7f45a625ac013ddd7780701238bab615f",
+  "mdm": "e8b1dff81f7375bc0c5a5d4eb1db311bce1c7043",
+  "workflow": "https://github.com/trickle-labs/pg-react/actions/runs/40495668338",
+  "full_exit": 1,
+  "full_result": "After restart managed worker correctly blocked for explicit activation; full audit expected delivery without reconciling. Shell errexit prevented writing full.exit.",
+  "focused_result": "All four focused tests and their validations passed twice in the same workflow.",
+  "other_failure": "Local MDM e2e on 49c00e965aa7e1ade37cd89e9b1795e16ef4b3ee exited 1 with a PostgreSQL deadlock in incremental_qualification.sql:438; no throughput acceptance claimed.",
+  "archive_sha256": "0548fdea5f3189250b9aa1215a3fbdcb5f6a734eaa0ee63270d9f00685c00568"
+}

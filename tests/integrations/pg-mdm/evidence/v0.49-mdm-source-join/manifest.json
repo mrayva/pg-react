@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-20",
+  "runtime_gate": "PASSED_LOCAL_DIRECT_MDM_SOURCE",
+  "scope": "Runtime entry only; draft PR #14, issue #11 open, production disabled; no #12 or pg-trickle #1168 closure.",
+  "react_base_commit": "9fb04854e741535c3c41907b6be4318a1ccf6939",
+  "tested_source_sha256": {
+    "integrations/pg-mdm/sql/comparison.sql": "865d48a66a36a7e663ca9de2fc2772d19cb03de157c9146a8f479e165d96cb1b",
+    "integrations/pg-mdm/sql/deadline-preview.sql": "d9c837597f45974704e939bcd14526adf1b2917b4845024caa22e29dc94c86d8",
+    "integrations/pg-mdm/sql/intent-worker.sql": "57971d63e6a78c7cc29a6c96a6a1610a8eb594328943ea9c218ee3857fc63b4c",
+    "integrations/pg-mdm/sql/policy-inputs.sql": "b0aa2f9b06f536fc257c0699d30e3ad518ef0d464adc809313081258e793980c",
+    "integrations/pg-mdm/sql/request-store.sql": "0ae7dc835716bd9a799b5d9031b9790fddf4235f1a2cb634fd4b5021ccd39a98",
+    "integrations/pg-mdm/sql/routing.sql": "67e044fe60bd5e6c9c40a83a97966c3dbe71a036f1f60d0803559dd38ca88b0c",
+    "integrations/pg-mdm/sql/typed-flow.sql": "b53646d0b62e31c2b834c0325acb8be9418ada4808017a2c8579ad45866c3bf8",
+    "pg_react.control": "684f15baa751a97717fe686496a9e809a4f04c73a38a9d21fe3e4ef49e84ff6a",
+    "sql/pg_react--0.46.1.sql": "b9927a8af5eca5334465ce7f313cc71b8f81d6ec6b0754c8842f1d6ca32df72f",
+    "src/identity.rs": "522d609495853348ff06379e53b421779d4e524ac4d970e310462ba89fd0271e",
+    "src/lib.rs": "0b8f6183fb21b4e612e6fae6e90248240b0049988b41d77c518ec0b17c0b45d9",
+    "src/lifecycle.rs": "0b5c16b35c093ba0345f322f9e180da8fc69a4396079821ccc50e4f6ffabe52a",
+    "src/managed.rs": "20c65190145e821c9c4f102c25f64a60d2fbfe355c36349504bf2addb8d4a998",
+    "src/oracle.rs": "b9b5dcafe6273341f75ad8670f14174b77e2deaa9dc51e78328d7d4e83ab565d",
+    "src/rewrite.rs": "58c59523be2a68e049c8538c365a4a71b79dcb7d29a21e698afa737c682c9370",
+    "tests/integrations/pg-mdm/time/audit.py": "a4316855ccb2813be1084b86d45a6f1aa11cb78971a5cc0276fcfb2c23c02485",
+    "tests/integrations/pg-mdm/time/boundaries.sql": "c93cb99e9fef9dd6d1d9165519cbe74d4436a58b8890d08d2b0d6b941d1e1f8a",
+    "tests/integrations/pg-mdm/time/compatibility.sql": "94e35dfa253ccbda0c8517e4c53a5221e123b10b1858c85a53d7c1f62f16f81d",
+    "tests/integrations/pg-mdm/time/idle-seed.sql": "432aaedc2060f558f51ec84b45b238b9c518e0c9fd77a9b11711527eeee012c6",
+    "tests/integrations/pg-mdm/time/idle.sql": "b59a680f93982bec5db5b9446a647d579172ce99c45cbfa1ff8364f67ae6ac24",
+    "tests/integrations/pg-mdm/time/maintenance.sql": "a5814a3285c3d1f68cbacbd4ee9751f2f6dc4b9ffdc8679564dcf353e1600272",
+    "tests/integrations/pg-mdm/time/refresh-permission.sql": "5082ba133757bec8c9a586b29550b747cb0ef44d0e09f89f46d7e220951f7f2c",
+    "tests/integrations/pg-mdm/time/routing.sql": "bef4d43ff378680f762c6eb9c116b555859e604c57ebfc522e33ccbeaa38c4c7",
+    "tests/integrations/pg-mdm/time/runtime-gate.sql": "1358ae3e7f9c888fca1d57d5deb53704bb3df0fcbf6222bfac6a08e061c109ad"
+  },
+  "repair": "Equivalent explicit ON equality in the outer candidate join; direct authorized MDM due_at remains the deadline. No producer, guard, permission or assertion change.",
+  "producer_limitation": {
+    "revision": "d8bb8eb5d45c5c9982e173e88914037433a1ee05",
+    "source": "src/dvm/parser/rewrites.rs:649",
+    "cause": "deparse_from_item_with_view_subs omits usingClause when expanding nested views",
+    "reproducer_using": "42601 syntax error at or near )",
+    "reproducer_on": "stream registered successfully",
+    "historical_failure": "../v0.49-mdm-source-stop/manifest.json"
+  },
+  "joint_artifact": {
+    "image": "pgreact:issue11-compatibility",
+    "image_id": "sha256:3cdd0ae0ac2b15f42cabdfc08c41b758360807148f6a5399f05b9bff4066453a",
+    "architecture": "arm64",
+    "labels": {
+      "pg_mdm.source_revision": "06471e647ee54a80973fb5ad6709830f9955dbff",
+      "pg_react.source_revision": "b0ad5c4c8d2a617120d680c2f4ecac80fbb742ea",
+      "pg_react.sql_base_revision": "35b340216f4767fccf2f0fe1abd409016b5f3525",
+      "pg_trickle.source_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+      "pg_trickle.source_revision": "d8bb8eb5d45c5c9982e173e88914037433a1ee05"
+    },
+    "binary_source": "Unchanged joint libraries and candidate SQL from 39efb26; fixture and audit mounted from the source hashes recorded here.",
+    "fixtures_and_libraries_sha256": [
+      "a989f42898d91932f7b5168398d7386f04bc3f9bdd1ff6a40ffe6bd2a76a1d7e  /tests/e2e.sql",
+      "a7abbf8b9673f160dc1a5e0b635ace993d05e5a18d5df1af757bcfa9159a7fb1  /tests/e2e_policy.sql",
+      "b5b0bdde5f8ae627fbd7208507d010f637b73809d8935942152e8921b8c4899b  /usr/lib/postgresql/18/lib/pg_react.so",
+      "4ee461ab1a871f7744ab05df2f4ed67d55c78b521ba603bd650bab9c4eb4f677  /usr/lib/postgresql/18/lib/pg_mdm.so",
+      "d451cd19fddc498271a43ff5d5a8613496ab778f2151c333e81f8d4b75e63aa3  /usr/lib/postgresql/18/lib/pg_trickle.so"
+    ]
+  },
+  "installed_profile": {
+    "settings": {
+      "pg_trickle.enabled": "off",
+      "pg_trickle.cdc_mode": "trigger",
+      "transaction_isolation": "read committed",
+      "shared_preload_libraries": "pg_trickle,pg_react",
+      "default_transaction_isolation": "read committed",
+      "pg_trickle.differential_max_change_ratio": "1"
+    },
+    "extensions": {
+      "plpgsql": "1.0",
+      "pg_react": "0.46.1",
+      "pg_trickle": "0.108.3"
+    },
+    "postgresql": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "compatibility": {
+      "qualified": true,
+      "capabilities": {
+        "output_delta_consumer": {
+          "raw": {
+            "details": {
+              "phase": "v0.104_conformance",
+              "status": "stable",
+              "enabled": true,
+              "graph_dependency": "external_graph_refresh",
+              "qualification_api": "qualify_output_delta_recovery",
+              "consumer_recovery_version": 1,
+              "public_resnapshot_request": true,
+              "public_consumer_validation": true,
+              "typed_delta_encoding_version": 1
+            },
+            "enabled": true,
+            "capability": "output_delta_consumer",
+            "major_version": 1,
+            "minor_version": 1
+          },
+          "major": 1,
+          "minor": 1,
+          "status": "stable",
+          "enabled": true
+        },
+        "external_graph_refresh": {
+          "raw": {
+            "details": {
+              "phase": "v0.104_conformance",
+              "status": "stable",
+              "enabled": true,
+              "refresh_api": "refresh_graph_strict",
+              "source_boundary": "local_trigger_or_wal",
+              "max_graph_members": 1024,
+              "unavailable_reason": null,
+              "differential_features": [
+                "stable_row_identity_encoder_v3",
+                "custom_table_srf_out_columns",
+                "lateral_immutable_composite_function"
+              ]
+            },
+            "enabled": true,
+            "capability": "external_graph_refresh",
+            "major_version": 1,
+            "minor_version": 2
+          },
+          "major": 1,
+          "minor": 2,
+          "status": "stable",
+          "enabled": true
+        }
+      },
+      "cdc_expected": "trigger",
+      "delta_v1_used": false,
+      "graph_v1_used": false,
+      "coordination_mode": "LEGACY_EXPLICIT",
+      "extension_version": "0.108.3",
+      "package_qualified": true,
+      "scheduler_expected": "off",
+      "capabilities_qualified": true
+    }
+  },
+  "runtime_settings": {
+    "pg_react.databases": "s1_idle",
+    "pg_react.batch_size": "32",
+    "max_worker_processes": "8",
+    "pg_react.worker_role": "mdm_s1_runtime",
+    "pg_react.max_pending_jobs": "10000",
+    "pg_react.poll_interval_ms": "1000"
+  },
+  "command": "DOCKER_DEFAULT_PLATFORM=linux/arm64 python3 tests/integrations/pg-mdm/time/audit.py pgreact:issue11-compatibility /private/tmp/pgreact11-explicit-join",
+  "command_exit": 0,
+  "checks": [
+    {
+      "name": "compatibility",
+      "result": "passed",
+      "seconds": 0.1029596249863971
+    },
+    {
+      "name": "fresh-adjacent-upgrade-compatibility",
+      "result": "passed"
+    },
+    {
+      "name": "refresh-permission",
+      "result": "passed",
+      "seconds": 0.11847037501865998
+    },
+    {
+      "name": "mdm-bootstrap",
+      "result": "passed",
+      "seconds": 123.00081183301518
+    },
+    {
+      "name": "mdm-policy-fixtures",
+      "result": "passed",
+      "seconds": 3.7885235419962555
+    },
+    {
+      "name": "idle-seed",
+      "result": "passed",
+      "seconds": 0.0696503329963889
+    },
+    {
+      "name": "v0.47",
+      "result": "passed",
+      "seconds": 0.20151574999908917
+    },
+    {
+      "name": "v0.47-typed",
+      "result": "passed",
+      "seconds": 0.08012316701933742
+    },
+    {
+      "name": "v0.48-codec",
+      "result": "passed",
+      "seconds": 0.08445191697683185
+    },
+    {
+      "name": "v0.47-live-setup",
+      "result": "passed",
+      "seconds": 0.6101950000156648
+    },
+    {
+      "name": "v0.47-live",
+      "result": "passed",
+      "seconds": 0.4459207080071792
+    },
+    {
+      "name": "v0.48-codec",
+      "result": "passed",
+      "seconds": 0.13110958397737704
+    },
+    {
+      "name": "v0.48-live",
+      "result": "passed",
+      "seconds": 4.523461250006221
+    },
+    {
+      "name": "v0.48-security",
+      "result": "passed",
+      "seconds": 0.15961245901416987
+    },
+    {
+      "name": "missing-mdm-admission",
+      "result": "passed"
+    },
+    {
+      "name": "sample-boundaries",
+      "result": "passed",
+      "seconds": 0.1712164169875905
+    },
+    {
+      "name": "idle-setup",
+      "result": "passed",
+      "seconds": 0.3727654170070309
+    },
+    {
+      "name": "callback-error-role-reset",
+      "result": "passed"
+    },
+    {
+      "name": "worker-missing-set-membership",
+      "result": "passed"
+    },
+    {
+      "name": "future-idle-mdm-receipt",
+      "result": "passed"
+    }
+  ],
+  "deadline_to_receipt_seconds": 0.468853,
+  "runner_entry_decision": "INPUT_BLOCKED",
+  "remaining_inputs": [
+    "1000-case/churn workload measurements",
+    "signed numeric operating envelope"
+  ],
+  "ci_evidence": "PR #14 check runs and body record the exact pushed-head CI runs; local result does not substitute for CI.",
+  "artifacts": {
+    "compatibility.log.gz": {
+      "sha256": "162050a359b34e8c0f539538721260fe95b7213ea6ad364bb746fb170042ebd3",
+      "uncompressed_sha256": "0ed250250ee263104bf64770e89b10e4db8e94e67265eb21faf6b08616db34cb"
+    },
+    "idle-seed.log.gz": {
+      "sha256": "02f5f545f9b6c6fb5b1e5b73e943e198be676a1242088a9035b3b4917ec8f67c",
+      "uncompressed_sha256": "dc326271a3b8822d57a3b949b4fbec9d4061e2163fe4070a9056e12d8662ed32"
+    },
+    "idle-setup.log.gz": {
+      "sha256": "2d203421f8414844bee901b9887ac69b7e03f0b63d4f8d8a8abf310a83d8b4dc",
+      "uncompressed_sha256": "ccdb41221e056464413d7239f9170c2f28b41d107e94c67bb63adb364c6bb176"
+    },
+    "mdm-bootstrap.log.gz": {
+      "sha256": "659238897f0ae140794a17704c58148286e42d3b457e99db5d3baaf779cc6bf6",
+      "uncompressed_sha256": "92987e2e8126f1c8f3072187461224d730f356f1515743296c8b933b5495b51b"
+    },
+    "mdm-policy-fixtures.log.gz": {
+      "sha256": "bfd64e7a95e0edc27ea535c4fd10705e7583fa6d6bee3e0df7830e262fd2930e",
+      "uncompressed_sha256": "59ea8097da572fe4029d3de30265ed977b6000678c463ba284f950f72ce5222f"
+    },
+    "observations.json.gz": {
+      "sha256": "eeeeb5e28b43ef7fe54541c52e589f76dea07a6ec3677fcaf0ad1c4949e8d9d6",
+      "uncompressed_sha256": "5dc70eff80c2459c1f5c331385657ea1d602ffb0919bdc9c93061ec1208bc011"
+    },
+    "refresh-permission.log.gz": {
+      "sha256": "a2662c58c0ed1550d791064dd4ce6e04fdc28c185518f3a8ef31f8c0c37a849c",
+      "uncompressed_sha256": "bae9c7491d153ea59121ee0f9deadcaa60b973e114b0a8ad866acf35c0b89f89"
+    },
+    "sample-boundaries.log.gz": {
+      "sha256": "b76c163bceb0f54bc67d9795abeab925e93f04371f1c51f0a578f288459ca38e",
+      "uncompressed_sha256": "24873fad6c0df5f4b33c51bc63a1169c65adde2e347fff3b3dc015d211bce3ad"
+    },
+    "v0.47-live-setup.log.gz": {
+      "sha256": "d392c8e6a2d5cc009176eee3142c6defd254958cd690d5d6fb1965aba7edf2b1",
+      "uncompressed_sha256": "5334c61908f8dae7f6b9bc7de721f70732b225584d3643aede2545f125ff0935"
+    },
+    "v0.47-live.log.gz": {
+      "sha256": "4cd5f0a45f9f54ac1eda02bc8b382daf528c25592deafa85a559ab56b2f3d9de",
+      "uncompressed_sha256": "6f5df9fcff0dde5f125fee8f9b972e27fa91c3a02a45fb8ad2792fc554a8e2f2"
+    },
+    "v0.47-typed.log.gz": {
+      "sha256": "b801aad4a87cede8d031cbcb2278f1127663af41f3b391eded1be468eda808a2",
+      "uncompressed_sha256": "9de0d83251e275a3798e36b77e3f245afba7fa9d5e27a60c81c160820e90d7f3"
+    },
+    "v0.47.log.gz": {
+      "sha256": "2a9791d0a6e74dbe1f04cb0c13e01b37af6c47726061b2af4658d23093f87b73",
+      "uncompressed_sha256": "fb7b65e7298d5fbc6c64db391e7485cf4a81a9630e3715f4f51fe12f2e10f71d"
+    },
+    "v0.48-codec.log.gz": {
+      "sha256": "4886729b50eebc88415466fbad7fcafb9787134ff1edfdd4a6b2646939ae2293",
+      "uncompressed_sha256": "c2843c48ebd2a0054eab5d1b9b1ab4b0664f5971cc63e3bb6f39e05adcaf9747"
+    },
+    "v0.48-live.log.gz": {
+      "sha256": "ad3756ca0b8c280c89c32d785a085ebd53c694d2496152e5e531df37de9e1e92",
+      "uncompressed_sha256": "d4698c75cede6f88361aa189e5a5107447619fe314180605246cc6acb6e8c3aa"
+    },
+    "v0.48-security.log.gz": {
+      "sha256": "426078cbd655a5498693a9cc5180137b218c1fdb6e3881abf71c8fdc5f177042",
+      "uncompressed_sha256": "bdd5fac0573355ce1cdcca6769bd363361d34c5d78f364dc5fd60de786b8f562"
+    }
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "scope": "Autonomous occurrence enrollment implementation regression; release qualification remains incomplete.",
+  "react_base_sha": "0a16c652579a782af2fb4bf5c3bc00b7e97f8c99",
+  "pg_mdm_source_sha": "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8",
+  "pg_trickle_source_sha": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673",
+  "pg_trickle_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+  "profile_sha256": "9d47118069bc4f8652508a19740ed35ee32bbf48f1d9f1ccc9e0a16f64ce0c8f",
+  "images": [
+    {
+      "Id": "sha256:5c1e5d5ca2c17487f6e70184a4d1d1607babc6836242d958bb67a144a0b48fcf",
+      "RepoTags": [
+        "pgreact:pr25-candidate"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:5c1e5d5ca2c17487f6e70184a4d1d1607babc6836242d958bb67a144a0b48fcf"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T11:21:17.996813468Z",
+      "Config": {
+        "User": "postgres",
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.4-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker",
+          "PG_REACT_INIT_VERSION=0.46.1"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "pg_mdm.candidate_key": "unknown",
+          "pg_mdm.source_revision": "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8",
+          "pg_trickle.source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+          "pg_trickle.source_revision": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673"
+        },
+        "StopSignal": "SIGINT"
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 762620513,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:8db1b4d0e54f2fbc2baf1563e57d88a8e72d3c79a72a38b9e4dee36e84f1d8ce",
+          "sha256:c884d2ab312e92f8127fbc14fd2113f3ab6b13ffdf492e2a665dabf15391fb47",
+          "sha256:4cf9cf4206a1ba211530447377ec4be0de34919a61246c36d8b4b3aafa38cb14",
+          "sha256:b2c303ecff9a3fe2903f3afd1eb674d70884b9ce310a6b781aa96b8f969a8b64",
+          "sha256:fd91933cc794ea107a522db38f47a5b740807fe205b8dc510d16b9a4590f70e4",
+          "sha256:fcd90363802a43b4baec62c14e89495511ff67c3042e263a0629c102a4b5e360",
+          "sha256:e91dda07cc3829bc3fd5f1137843b88e06ae7aba546fc2d91cc89fab4d9a0da9",
+          "sha256:57831b2ad1470741577dd179f9531dccdc918f0f960383fa79eeeaa1a19b3221",
+          "sha256:8e7e6ea472173c82a36c5f6f6e8247909b96868edf6b3377c302db736daedbec",
+          "sha256:c5bf05ce091cace385b8d512b8c35e0bb3da0f4c16690157a9d09a80e39c3774",
+          "sha256:d7af73d8e8b8fc2038f54492315f1cbd3afecc6a3eabbb22e7a7eb3aec7fc786",
+          "sha256:1656a1c17a5338e376a22a359822a894f915a24bf264979a9dc684fd34318c3e",
+          "sha256:388655d910c8af438b3126437c099ca48f7946402df6adbe23d65c6ac8c9b38d",
+          "sha256:35d4558e3835ef78e9040d5749c06142068addb6eb03b757b739b682f3956ffa",
+          "sha256:5ef21cf23f0ff825bbd05e26e6c07429e48ec8108fcc3507547cf76d715ff11a",
+          "sha256:9c7c2fb20c3dfc1867d798f9b96c61d3878c179f4c36526d5b968966471e2e95",
+          "sha256:d4779011b89d9e44ffb5508675209cac96f886cc040693c531c008d7063750a3",
+          "sha256:c07b3669eb9a54f700a7600b7d3e28f2b7f351457ec516814bbfbaff4d9ef170",
+          "sha256:d280cba5b8bebe3f3c3908da99102208853cb2850016073ab00a90b2547b1bfd",
+          "sha256:bf28f1ce8dec60956a9ef3f01e1e37226b43621b6c1f99022afb2ddb7ce97a45",
+          "sha256:5d97d813ad6a6174d2f91a91738244a082860cad438627fa7e02f56cfa9457a1",
+          "sha256:3801e91bfb1e873ead863cb1e9682e5f4a190fc4f75f410cbcc1f5cb1e21f2e2",
+          "sha256:0147e8a56b4e3edca5e359d85944858d551a3c8d693336ddc447f2f97edac668",
+          "sha256:2dcd68f73baf56c71042827d3b37e5cf215aa7433d1fe0b98033896710adcfc8",
+          "sha256:a26a73ffbbc61fbb58638c76c63cf5d8fd98498776906157c2271f08a302841e",
+          "sha256:b81e9b6df4e2b133377865cec30366debe97a412fa37506b26aaba3e5cc72987",
+          "sha256:c2ee835ba6db92a53ec7eee3c4d6d23608955c60d54e54124399dc7c8171cc96",
+          "sha256:c4e9a02ea51e285c1d43fbe79e183ce8e2e0be326bdea2ad0779d7582c74e0e3",
+          "sha256:084ace220a25f266529c2a7f3bf18446b63af9934d663123d6a1dec49ee36fbc",
+          "sha256:78953fc109b8702c8b43b442624746487e2e9d95c08eadc872aae498bb1de54e",
+          "sha256:55654044f669081eaaab60e1b708f92a733ec5fe151869999e29928f6c4332d0",
+          "sha256:994462552a0d8136783e7c7ad06d931ec4c09ac5382a97553ade6003ef92e2f6",
+          "sha256:b1aea3964a63cb8c80139b5e162d5830774d78f2852bbefeb78297e0b538efbc",
+          "sha256:9baa2eab04d612a29897207d35e5427f6fb4c3a6d432e5b21c38b6b7c35d0e22",
+          "sha256:a31af5dc51aba59dc34eba9cd5e447df0db4e53e49e28f1c3f9e95412593ac2e",
+          "sha256:71d9d2a3db985638f6f8c4fd35773996ebee24b58a6f32f6f9ffcdd73b5c2976",
+          "sha256:40f331517b8c5fef845f546e0e2ddaf99d2062a208f51d59a4aaa37e9f6fff69"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T11:21:19.448530802Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:5c1e5d5ca2c17487f6e70184a4d1d1607babc6836242d958bb67a144a0b48fcf",
+        "size": 856
+      },
+      "Identity": {
+        "Pull": [
+          {
+            "Repository": "docker.io/library/pgreact"
+          }
+        ],
+        "Build": [
+          {
+            "Ref": "u3jxrexbpse2er5n12rxewumw",
+            "CreatedAt": "2026-10-26T11:21:19.454690635Z"
+          }
+        ]
+      }
+    },
+    {
+      "Id": "sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558",
+      "RepoTags": [
+        "pgreact:auto-final-operator"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T15:57:19.16870772Z",
+      "Config": {
+        "User": "postgres",
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.4-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker",
+          "PG_REACT_INIT_VERSION=0.46.1"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "pg_mdm.candidate_key": "unknown",
+          "pg_mdm.source_revision": "6ad23ca11cb956f264e93e46a6351d32ea4a1ca8",
+          "pg_trickle.source_archive_sha256": "d6233d49cee80d33ac30626e0af7932a9698279233b8fceef3447275192abc27",
+          "pg_trickle.source_revision": "c7e257e551d6f6bacb84ecfe6f5daf7637c53673"
+        },
+        "StopSignal": "SIGINT"
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 776708955,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:8db1b4d0e54f2fbc2baf1563e57d88a8e72d3c79a72a38b9e4dee36e84f1d8ce",
+          "sha256:c884d2ab312e92f8127fbc14fd2113f3ab6b13ffdf492e2a665dabf15391fb47",
+          "sha256:4cf9cf4206a1ba211530447377ec4be0de34919a61246c36d8b4b3aafa38cb14",
+          "sha256:b2c303ecff9a3fe2903f3afd1eb674d70884b9ce310a6b781aa96b8f969a8b64",
+          "sha256:fd91933cc794ea107a522db38f47a5b740807fe205b8dc510d16b9a4590f70e4",
+          "sha256:fcd90363802a43b4baec62c14e89495511ff67c3042e263a0629c102a4b5e360",
+          "sha256:e91dda07cc3829bc3fd5f1137843b88e06ae7aba546fc2d91cc89fab4d9a0da9",
+          "sha256:57831b2ad1470741577dd179f9531dccdc918f0f960383fa79eeeaa1a19b3221",
+          "sha256:8e7e6ea472173c82a36c5f6f6e8247909b96868edf6b3377c302db736daedbec",
+          "sha256:c5bf05ce091cace385b8d512b8c35e0bb3da0f4c16690157a9d09a80e39c3774",
+          "sha256:d7af73d8e8b8fc2038f54492315f1cbd3afecc6a3eabbb22e7a7eb3aec7fc786",
+          "sha256:1656a1c17a5338e376a22a359822a894f915a24bf264979a9dc684fd34318c3e",
+          "sha256:388655d910c8af438b3126437c099ca48f7946402df6adbe23d65c6ac8c9b38d",
+          "sha256:35d4558e3835ef78e9040d5749c06142068addb6eb03b757b739b682f3956ffa",
+          "sha256:5ef21cf23f0ff825bbd05e26e6c07429e48ec8108fcc3507547cf76d715ff11a",
+          "sha256:9c7c2fb20c3dfc1867d798f9b96c61d3878c179f4c36526d5b968966471e2e95",
+          "sha256:d4779011b89d9e44ffb5508675209cac96f886cc040693c531c008d7063750a3",
+          "sha256:c07b3669eb9a54f700a7600b7d3e28f2b7f351457ec516814bbfbaff4d9ef170",
+          "sha256:d280cba5b8bebe3f3c3908da99102208853cb2850016073ab00a90b2547b1bfd",
+          "sha256:bf28f1ce8dec60956a9ef3f01e1e37226b43621b6c1f99022afb2ddb7ce97a45",
+          "sha256:5d97d813ad6a6174d2f91a91738244a082860cad438627fa7e02f56cfa9457a1",
+          "sha256:3801e91bfb1e873ead863cb1e9682e5f4a190fc4f75f410cbcc1f5cb1e21f2e2",
+          "sha256:0147e8a56b4e3edca5e359d85944858d551a3c8d693336ddc447f2f97edac668",
+          "sha256:2dcd68f73baf56c71042827d3b37e5cf215aa7433d1fe0b98033896710adcfc8",
+          "sha256:a26a73ffbbc61fbb58638c76c63cf5d8fd98498776906157c2271f08a302841e",
+          "sha256:b81e9b6df4e2b133377865cec30366debe97a412fa37506b26aaba3e5cc72987",
+          "sha256:c2ee835ba6db92a53ec7eee3c4d6d23608955c60d54e54124399dc7c8171cc96",
+          "sha256:c4e9a02ea51e285c1d43fbe79e183ce8e2e0be326bdea2ad0779d7582c74e0e3",
+          "sha256:084ace220a25f266529c2a7f3bf18446b63af9934d663123d6a1dec49ee36fbc",
+          "sha256:78953fc109b8702c8b43b442624746487e2e9d95c08eadc872aae498bb1de54e",
+          "sha256:55654044f669081eaaab60e1b708f92a733ec5fe151869999e29928f6c4332d0",
+          "sha256:994462552a0d8136783e7c7ad06d931ec4c09ac5382a97553ade6003ef92e2f6",
+          "sha256:b1aea3964a63cb8c80139b5e162d5830774d78f2852bbefeb78297e0b538efbc",
+          "sha256:9baa2eab04d612a29897207d35e5427f6fb4c3a6d432e5b21c38b6b7c35d0e22",
+          "sha256:a31af5dc51aba59dc34eba9cd5e447df0db4e53e49e28f1c3f9e95412593ac2e",
+          "sha256:71d9d2a3db985638f6f8c4fd35773996ebee24b58a6f32f6f9ffcdd73b5c2976",
+          "sha256:40f331517b8c5fef845f546e0e2ddaf99d2062a208f51d59a4aaa37e9f6fff69",
+          "sha256:87644dd884903876b0f15ed122d63c262b9718d3ede7bc969a1321e9f06b7600",
+          "sha256:53aeacdb382d3aa35bcb23a44e198caf5fa24fc9de7b635e97b147baacd92b90",
+          "sha256:3b0fc3524ec8420ffd3d2f53058b78f3e683a112150dcad1bc0b7c459f478808"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T15:57:19.324538095Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:8327768e129cfefbbb1ed958bb267d80f13297a494b2b27b2acba1cffa779558",
+        "size": 856
+      },
+      "Identity": {
+        "Build": [
+          {
+            "Ref": "pi5a9cr0kvgdbas43z1x1mch7",
+            "CreatedAt": "2026-10-26T15:57:19.330929387Z"
+          }
+        ]
+      }
+    },
+    {
+      "Id": "sha256:f027b63545b4b66f1be874985277d9b0a0eb55d1a9575c4360b0fac498297a6b",
+      "RepoTags": [
+        "pgreact:auto-core"
+      ],
+      "RepoDigests": [
+        "pgreact@sha256:f027b63545b4b66f1be874985277d9b0a0eb55d1a9575c4360b0fac498297a6b"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T15:54:25.981786917Z",
+      "Config": {
+        "ExposedPorts": {
+          "5432/tcp": {}
+        },
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+          "GOSU_VERSION=1.19",
+          "LANG=en_US.utf8",
+          "PG_MAJOR=18",
+          "PG_VERSION=18.3-1.pgdg12+1",
+          "PGDATA=/var/lib/postgresql/18/docker",
+          "PG_REACT_INIT_VERSION=0.46.0"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "postgres"
+        ],
+        "Volumes": {
+          "/var/lib/postgresql": {}
+        },
+        "Labels": {
+          "org.opencontainers.image.base.name": "docker.io/library/postgres:18.3-bookworm",
+          "org.opencontainers.image.description": "PostgreSQL 18.3 with pg_trickle streaming tables and IVM pre-installed",
+          "org.opencontainers.image.documentation": "https://github.com/trickle-labs/pg-trickle/blob/main/docs/GETTING_STARTED.md",
+          "org.opencontainers.image.licenses": "Apache-2.0",
+          "org.opencontainers.image.source": "https://github.com/trickle-labs/pg-trickle",
+          "org.opencontainers.image.title": "pg_trickle",
+          "org.opencontainers.image.vendor": "trickle-labs",
+          "org.opencontainers.image.version": "0.108.0"
+        },
+        "StopSignal": "SIGINT",
+        "Healthcheck": {
+          "Test": [
+            "CMD-SHELL",
+            "pg_isready -U postgres || exit 1"
+          ],
+          "Interval": 10000000000,
+          "Timeout": 5000000000,
+          "StartPeriod": 30000000000,
+          "Retries": 5
+        }
+      },
+      "Architecture": "amd64",
+      "Os": "linux",
+      "Size": 738446411,
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:5d0ffcca6050b9c12db964453426d0c2bf06c4a53fb7754feeda08f53a3cf424",
+          "sha256:a8ccbbfe85a6d294e9dd9f3fbcad291a5f120829934a554b87abae38d3a45b1e",
+          "sha256:f01ff1bd8f34dbf0d0c29e2bfb3a7f544b94536fe166c50a2167548df97b5c2e",
+          "sha256:4c5724a740ecfd1afd0bb8c042ad767abeee22b6ee87f73f3c2fbac399039924",
+          "sha256:5346ca69d9ad080d06c84977e8ec9c3ae8f063a2ed86a8c839ea953b12d9e3d1",
+          "sha256:27c6ddab34cbbdb2168167ce8f3698b90514388905e1bb704a411467cb5738a4",
+          "sha256:a29a590c371a2a9f0ae2c83fbd388bf5e092efc6c5fc080903b4db66542a15b4",
+          "sha256:f7501e978666c42d8eb21f4b70b78060b623228feb9f2b69b7a7c7d280b9d9c0",
+          "sha256:0a57f9e502bfd4b01792e2fe60eabe0100e8dc16aace8d0bfcfaaddf278d10cf",
+          "sha256:841bafcd09ed02d724817de0582b3c71548770d927ecbae9064a5c29d62e0da0",
+          "sha256:20be7cabd0e6fe39cb4ccf2d7b4c78502e95d4922c93f300951e9540af8ab664",
+          "sha256:75df44bb756c0fa474ac9a71744d3518c85072d917341b2c144af90600b795ba",
+          "sha256:2be97488ad89dafc9b060186357911c1ae2533a4ed34bd5a0d6c9db82e51e2af",
+          "sha256:686a2b3635e1af380fbeff278b2228197adad8e131aab176d2e9d92700e68b7e",
+          "sha256:302cf337354529eaf8b28f496dbf9647c9481fa9de4a620a4554b2c424a63168",
+          "sha256:7d3670ea2d4b61d95793a614a261941d7865962ef5c435a7da06ab16c476aff7",
+          "sha256:e22e245bdc3b118d665a894b496a56c5e46f3b47d3e504a1068ffd2e66a79689",
+          "sha256:94159541abe3723e3a31276a2dd46a247df7fd24bc8098d3b49fbaf1efa5e5ce",
+          "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+          "sha256:c68d0bd3f88de78560da05dfc952fd0e6b79e3bed1e017a8e4d471e6e804149c",
+          "sha256:fa9a72df65e401b08f570c7284edb45bd77347e36b1858d5d706deb37fcf7db2",
+          "sha256:e8b4aa9f04684311dcf383aaf5ab062a00e3a64ec9a0814982aa0bfe2dc9a6e8",
+          "sha256:05fbc03ba601057612f99dd148f9434fa1195aafb31689a61a682f8798bdafb0",
+          "sha256:4437b6d5ff16c76eaac4f636295debc8e58115586ebcde70d45edbbedce78fa5"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "2026-10-26T15:54:27.547826293Z"
+      },
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "digest": "sha256:f027b63545b4b66f1be874985277d9b0a0eb55d1a9575c4360b0fac498297a6b",
+        "size": 856
+      },
+      "Identity": {
+        "Build": [
+          {
+            "Ref": "zb0fhyvjm52n2tjroytoy69y0",
+            "CreatedAt": "2026-10-26T15:54:27.55299496Z"
+          }
+        ]
+      }
+    }
+  ],
+  "tested_file_sha256": {
+    "integrations/pg-mdm/sql/comparison.sql": "865d48a66a36a7e663ca9de2fc2772d19cb03de157c9146a8f479e165d96cb1b",
+    "integrations/pg-mdm/sql/deadline-preview.sql": "d9c837597f45974704e939bcd14526adf1b2917b4845024caa22e29dc94c86d8",
+    "integrations/pg-mdm/sql/intent-worker.sql": "999d7d356f215c660d9fbedf5e9f358786d7303a75347752cb30b2c177e5bd5c",
+    "integrations/pg-mdm/sql/policy-inputs.sql": "b0aa2f9b06f536fc257c0699d30e3ad518ef0d464adc809313081258e793980c",
+    "integrations/pg-mdm/sql/request-store.sql": "0ae7dc835716bd9a799b5d9031b9790fddf4235f1a2cb634fd4b5021ccd39a98",
+    "integrations/pg-mdm/sql/routing.sql": "c1f41936044c8981a43f31794719b5c3da8d14a9aba67a1c32969a2b5f1393b1",
+    "integrations/pg-mdm/sql/typed-flow.sql": "b53646d0b62e31c2b834c0325acb8be9418ada4808017a2c8579ad45866c3bf8",
+    "pg_react.control": "684f15baa751a97717fe686496a9e809a4f04c73a38a9d21fe3e4ef49e84ff6a",
+    "sql/pg_react--0.46.1.sql": "990a525927e9fba4b1d9958f40359c55ba71ed2949b6d99b64fad02616f1aaf2",
+    "src/identity.rs": "522d609495853348ff06379e53b421779d4e524ac4d970e310462ba89fd0271e",
+    "src/lib.rs": "0b8f6183fb21b4e612e6fae6e90248240b0049988b41d77c518ec0b17c0b45d9",
+    "src/lifecycle.rs": "0b5c16b35c093ba0345f322f9e180da8fc69a4396079821ccc50e4f6ffabe52a",
+    "src/managed.rs": "1774c292f8850d450cc1cf822f63a651d3cef1138b3b6fcf349e576a1655ffb4",
+    "src/oracle.rs": "b9b5dcafe6273341f75ad8670f14174b77e2deaa9dc51e78328d7d4e83ab565d",
+    "src/rewrite.rs": "58c59523be2a68e049c8538c365a4a71b79dcb7d29a21e698afa737c682c9370",
+    "tests/integrations/pg-mdm/time/audit.py": "b52081a030d17c83555b09b1240d5d1c1cde9eaf083f7fd16ba21af7cc7055f5",
+    "tests/integrations/pg-mdm/time/autonomous-bootstrap.sql": "0771e4b7c895095a4c85455983a37be9a011c7845ec8efd9852dcbdc8e1b117e",
+    "tests/integrations/pg-mdm/time/autonomous-recurrence.sql": "4090ed6b9ec88b6c42ea2b1dfce329003fb1b38f8075ba321da71270c0746e7c",
+    "tests/integrations/pg-mdm/time/autonomous-successor.sql": "972ecb715e446d9dc74e9200ddfc45ba4b6f17a7d4eb490418ca036669bb6522",
+    "tests/integrations/pg-mdm/time/autonomous_recurrence.py": "5dffdf8046db3089791241b51cae9279629f4455168d22b5dc28cb975fb75681",
+    "tests/integrations/pg-mdm/time/boundaries.sql": "c93cb99e9fef9dd6d1d9165519cbe74d4436a58b8890d08d2b0d6b941d1e1f8a",
+    "tests/integrations/pg-mdm/time/compatibility.sql": "94e35dfa253ccbda0c8517e4c53a5221e123b10b1858c85a53d7c1f62f16f81d",
+    "tests/integrations/pg-mdm/time/human-reduction-crosskey.sql": "5dc236d46f7fa3eb06c1126730d7c0f14da69740c435f09983f150b5385171c7",
+    "tests/integrations/pg-mdm/time/human-stale-after-concurrency.sql": "cae0a5a02711ef17e387249869d787d0dbe62066958b84747299865391f28498",
+    "tests/integrations/pg-mdm/time/idle-seed.sql": "432aaedc2060f558f51ec84b45b238b9c518e0c9fd77a9b11711527eeee012c6",
+    "tests/integrations/pg-mdm/time/idle.sql": "3c6b839193070f6c9e9dd166bfacf1bc5f3c60fcef19f852f3e483470d826a07",
+    "tests/integrations/pg-mdm/time/maintenance.sql": "51483d464bf4eff63c371cd42a375d3baa99874453262645f9d36149b826a86a",
+    "tests/integrations/pg-mdm/time/managed-admission.sql": "0899f97711a1a5f0039ee9f2f2aadf15b001045177795be2a91cecb632dc74f2",
+    "tests/integrations/pg-mdm/time/pause-barrier.sql": "64f8ea82b6d8d26e2e595bef2b2476c8a0a431cf3fb04ff1b224150cdc49a9d9",
+    "tests/integrations/pg-mdm/time/recovery.sql": "ab6fded89e2a5ad8c74cf823acf6d67b8c2bc1a06d8f67c8a5c72c89f3cdf9c3",
+    "tests/integrations/pg-mdm/time/recurrence-independent.sql": "965455dfba5cb2178027960b2e6577edee7418377314b55f7401a9b07ec77045",
+    "tests/integrations/pg-mdm/time/recurrence-maximum.sql": "4a9c008db523488ba4321d11416c0b9375617b47ce761c554add70022cda4870",
+    "tests/integrations/pg-mdm/time/refresh-permission.sql": "5082ba133757bec8c9a586b29550b747cb0ef44d0e09f89f46d7e220951f7f2c",
+    "tests/integrations/pg-mdm/time/resume-after-pause.sql": "c055e52ce881b8195c93955041305786064262451798d0c40e9f87279dbed1d8",
+    "tests/integrations/pg-mdm/time/resume-stale-version.sql": "ad79d98328830125e4c3f8c718c8c50dbb13d72b20976091d77ddbcf894fb5ac",
+    "tests/integrations/pg-mdm/time/routing.sql": "b6af657d28a255e7ff05e95f2ffefed8427ba7a035b01b1612f2b60395b679ee",
+    "tests/integrations/pg-mdm/time/runtime-gate.sql": "1358ae3e7f9c888fca1d57d5deb53704bb3df0fcbf6222bfac6a08e061c109ad",
+    "tests/integrations/pg-mdm/time/upgrade-rollback.sql": "cc6494bb55f2884a3d856d75cf4c147702c064ad2d13d2610037b3913e903044"
+  },
+  "production_file_sha256": {
+    "sql/current/pgtrickle.sql": "851ae696eb0107e3612b20a222ea2c90b6797264706d54b90b42321269f6b09f",
+    "sql/pg_react--0.46.1.sql": "990a525927e9fba4b1d9958f40359c55ba71ed2949b6d99b64fad02616f1aaf2",
+    "sql/pg_react--0.46.0--0.46.1.sql": "202f5b99dd854972baea4b977093da256ec71c8d05b42ff4d58ae972e0670ccc",
+    "integrations/pg-mdm/sql/intent-worker.sql": "999d7d356f215c660d9fbedf5e9f358786d7303a75347752cb30b2c177e5bd5c"
+  },
+  "local_joint_image_recipe": "FROM pgreact:pr25-candidate\nUSER root\nCOPY sql/ /usr/share/postgresql/18/extension/\nCOPY integrations/pg-mdm/ /workspace/integrations/pg-mdm/\nCOPY tests/integrations/pg-mdm/ /workspace/tests/integrations/pg-mdm/\nUSER postgres\n",
+  "commands": [
+    {
+      "command": "rtk cargo fmt -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk cargo test --locked",
+      "exit_code": 0,
+      "result": "8 passed"
+    },
+    {
+      "command": "rtk cargo clippy --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk bash tests/current-docs.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk bash tests/workflow-syntax.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk bash tests/api-inventory.sh pgreact:auto-core",
+      "exit_code": 0
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr25-candidate /tmp/pgreact-auto-focused-before-3 --autonomous-recurrence",
+      "exit_code": 1,
+      "result": "Actual pre-repair defect: healthy cycles, successor case 3/occurrence 2 never enrolled; occurrence 1 applied receipt retained."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:pr25-candidate /tmp/pgreact-auto-final-before-2 --autonomous-recurrence",
+      "exit_code": 1,
+      "result": "Final complete-vector/diagnostic regression also fails with the baseline core image; current adapter files mounted read-only."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:auto-final-operator /tmp/pgreact-auto-operator --autonomous-recurrence",
+      "exit_code": 0,
+      "result": "Both occurrences delivered once; full canonical vectors, non-superuser diagnostics, denied runtime helper/private producer access, quiescent identities/sequence, healthy cycles and cold restart."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:auto-final /tmp/pgreact-auto-final-repeat --autonomous-recurrence",
+      "exit_code": 0,
+      "result": "Independent fresh-database recurrence/restart repeat passed before adding the non-superuser inspection assertion."
+    },
+    {
+      "command": "rtk python3 tests/integrations/pg-mdm/time/audit.py pgreact:auto-final /tmp/pgreact-auto-final-full",
+      "exit_code": 1,
+      "result": "Unchanged upstream MDM bootstrap lost connection at /tests/e2e.sql:3544; server log records backend killed by signal 9. React integration scenarios not reached."
+    },
+    {
+      "command": "rtk env V046_ARTIFACT_DIR=/tmp/pgreact-auto-core-suite rtk bash tests/qualification.sh complete pgreact:auto-core",
+      "exit_code": 1,
+      "result": "Core correctness, concurrency, DDL lock-order, M54, M34 and M31 authorization/RLS passed. The unchanged M59 benchmark then rejected this aarch64 Docker host. Later complete-suite upgrade stages were not reached; no benchmark acceptance or policy override."
+    }
+  ],
+  "archives": [
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-autonomous-recurrence/passing-runs.json.gz",
+      "sha256": "a2c863c572f1f57915590ecf374a066eaa76e5e1185b84ad17d9fc335ab24d72"
+    },
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-autonomous-recurrence/retained-failures.json.gz",
+      "sha256": "2ca8a7d4012a9f445d6a5b9ba1db3092185d597934772696117672fc0c9456ec"
+    },
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-autonomous-recurrence/core-suite.json.gz",
+      "sha256": "7af091627a6f57243da49a7a1a2bd460329476485796f396a385b2492f693258"
+    },
+    {
+      "path": "tests/integrations/pg-mdm/evidence/v0.49-autonomous-recurrence/validation-logs.json.gz",
+      "sha256": "c61759c8f47070c816e4e7d298bc4c4136b7e0e4bf33d5b9b12d6c727af7accf"
+    }
+  ],
+  "observations": {
+    "initial_bootstrap_retries": "Both original-image retries and the separately identified 32 MiB producer memory-cap diagnostic failed at the same upstream bootstrap statement. The passing focused lane uses original memory settings.",
+    "test_development_failures": "Retained: timestamp-text formatting, empty aggregate serialization, sequence inspection and deadline-history envelope assertions were corrected without weakening expected production behavior.",
+    "image_build": "Local joint candidate reuses unchanged compiled libraries from pgreact:pr25-candidate and copies current SQL/adapter/tests. Native ARM64 performance is not qualified.",
+    "core_image": "Normal repository Dockerfile with its unchanged published pg_trickle 0.108.0 base, separately from joint producer 0.108.3."
+  },
+  "remaining": [
+    "Both real React-claim/human-edit/pause/replacement transaction orderings and uncertain commits",
+    "Deterministic characterization of pinned MDM pause versus binding/case-lock ordering",
+    "Complete protected/ineligible/stale/claimed operator diagnostic matrix",
+    "Logical restore and clean physical clone/same-OID environment activation guarantees",
+    "Frozen exact-current paired 300-admission workload, 1000-case burst, fairness, resource/recovery and 90-day retention qualification",
+    "Full packaged native CI and independent review; issues #8/#11/#12/#1168 remain open"
+  ],
+  "release_qualified": false,
+  "remaining_work_qualification_only": false
+}

@@ -37,10 +37,24 @@ The public seams are:
   publication and `pgreact_mdm.policy_document(policy_revision)` for review.
 - `pgreact_mdm.route_cases(source_relation, policy_revision[, entity_name])`
   for winner, ambiguity, no-candidate, protection, and no-op explanations.
+- `pgreact_mdm.route_cases(source_relation, policy_revision, entity_name, captured_at)`
+  for the same read at one explicit finite database-time sample (`NULL` entity
+  selects all entities). Equality with `due_at` counts as due. The existing
+  overloads sample `statement_timestamp()` once; population comparison uses its
+  supplied `captured_at` for both routing and deadline proposals. Its
+  explanation records that sample, the current deadline and escalation level,
+  the requested level, due status, and the specific ineligibility reason.
 - `pgreact_mdm.deadline_preview(source_relation, policy_revision, captured_at[, entity_name])`
   for explicit-time deadline proposals.
 - `pgreact_mdm.compare_population(...)` for complete or partial bounded
   comparisons with an explicit coverage manifest.
+
+The explicit-time routing read is preparatory work for
+[managed bounded escalation #11](https://github.com/trickle-labs/pg-react/issues/11). It does not
+register a managed escalation policy or certify delivery. The
+[implementation status](../../docs/v0.49-issue-11-status.md) records the
+owner-confirmed semantics, satisfied MDM fixture prerequisite, and remaining
+managed-runtime gates.
 
 After the core extension is installed, load `typed-flow.sql` and pass the
 returned `pgreact_api.declaration` to `pgreact.validate`, `pgreact.preview`,
@@ -78,7 +92,10 @@ processing episodes. Run `pgreact_mdm.execute_intent_episode` with the runner
 session set to `pgreact_mdm_worker`; refresh rules as the runner because pg-react
 checks rule ownership. The adapter stores a stable bigint identity for each
 entity and case pair because MDM case keys are entity-scoped. Run the sync
-before refresh whenever MDM may have new cases. After a restore, the entity
+before manual refresh whenever MDM may have new cases. The ordinary managed
+worker now runs this same authorized sync before its refresh/time evaluation,
+so a new MDM occurrence needs no manual enrollment. Sync does not activate a
+binding or grant the worker access to producer-private catalogs. After a restore, the entity
 execution role must call
 `pgreact_mdm.reconcile_intent_binding(binding_id, 0)` before the runner syncs
 identities and refreshes rules. Use `pgreact_mdm.pause_intent_binding` to pause
@@ -92,6 +109,12 @@ execution role. MDM rejects its calls to human decision, refresh, rebuild, and
 identity APIs. The adapter helper is owned by `mdm_helper_owner` and restores
 only the narrow worker grants after binding creation, replacement, or
 reconciliation.
+
+The read-only `pgreact_mdm.delivery_inspection_v1` view reports the current
+deadline and escalation level beside the requested level and the level recorded
+in an applied MDM receipt. It also carries binding and policy versions,
+delivery state, receipt outcome, and remediation reason. The receipt level is
+historical; the current case level may change after a later human action.
 
 Run `tests/integrations/pg-mdm/v0.48-codec.sql` after the fixture test, then
 run `tests/integrations/pg-mdm/v0.47-live-setup.sql` to create the second MDM
@@ -119,3 +142,7 @@ For installed MDM M1 qualification, bootstrap the upstream image with
 
 The package is adapter-owned and optional; the core pg-react extension remains
 usable without it.
+
+For the managed-deadline candidate, see the [v0.49 qualification profile and
+operator procedure](../../docs/v0.49-qualification.md). It records prospective
+limits, focused upgrade/recovery proofs and the remaining release gates.

@@ -293,6 +293,84 @@ SELECT jsonb_build_object(
     'reclaimed',(SELECT jsonb_agg(to_jsonb(c)) FROM reclaimed c),
     'actions',(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM claim_maintenance.actions a),
     'source',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM claim_maintenance.source s)) AS vector;
+
+-- Separate from pg_react.batch_size (which bounds maintenance), the public
+-- claim admission is a max_items argument subject to operational max_claims.
+-- Prove two independent pending episodes cannot be leased in one max_items=1
+-- invocation, and that the second remains available for a later claim.
+INSERT INTO claim_maintenance.source VALUES
+    (4, '2000-01-04 00:00:00+00'),
+    (5, '2000-01-05 00:00:00+00');
+SELECT pgreact_api.run(clock_timestamp());
+DO $pending_claims$
+DECLARE due_count bigint;
+BEGIN
+    SELECT count(*) INTO due_count
+    FROM pgreact_internal.agenda AS agenda
+    WHERE agenda.state IN ('PENDING', 'RETRY_WAIT')
+      AND agenda.available_at <= clock_timestamp()
+      AND agenda.rule_version_id = (
+          SELECT rule_version_id FROM pgreact.rules
+          WHERE rule_name = 'maintenance-claim');
+    IF due_count <> 2 THEN
+        RAISE EXCEPTION 'two fresh eligible episodes required, found %', due_count;
+    END IF;
+END
+$pending_claims$;
+CREATE TEMP TABLE first_bound_claim AS
+SELECT * FROM pgreact.claim('bounded-1', 1, interval '60 seconds');
+DO $first_bound$
+DECLARE remaining bigint;
+BEGIN
+    SELECT count(*) INTO remaining
+    FROM pgreact_internal.agenda AS agenda
+    WHERE agenda.state = 'PENDING'
+      AND agenda.available_at <= clock_timestamp()
+      AND agenda.rule_version_id = (
+          SELECT rule_version_id FROM pgreact.rules
+          WHERE rule_name = 'maintenance-claim');
+    IF (SELECT count(*) FROM first_bound_claim) <> 1 OR remaining <> 1
+       OR (SELECT worker_id FROM pgreact_internal.agenda
+           WHERE episode_id=(SELECT episode_id FROM first_bound_claim)) <> 'bounded-1' THEN
+        RAISE EXCEPTION 'max_items=1 claim exceeded its bound or lost pending work: %',
+            remaining;
+    END IF;
+END
+$first_bound$;
+CREATE TEMP TABLE second_bound_claim AS
+SELECT * FROM pgreact.claim('bounded-2', 1, interval '60 seconds');
+DO $second_bound$
+DECLARE item record;
+BEGIN
+    IF (SELECT count(*) FROM second_bound_claim) <> 1
+       OR (SELECT episode_id FROM first_bound_claim)
+          = (SELECT episode_id FROM second_bound_claim)
+       OR EXISTS (
+           SELECT 1 FROM pgreact_internal.agenda
+           WHERE state IN ('PENDING','RETRY_WAIT')
+             AND available_at <= clock_timestamp()
+             AND rule_version_id = (SELECT rule_version_id FROM pgreact.rules
+                                   WHERE rule_name='maintenance-claim')) THEN
+        RAISE EXCEPTION 'second bounded claim is missing, duplicated or stranded';
+    END IF;
+    FOR item IN
+        SELECT episode_id, lease_token, 'bounded-1'::text AS worker_id FROM first_bound_claim
+        UNION ALL
+        SELECT episode_id, lease_token, 'bounded-2'::text FROM second_bound_claim
+    LOOP
+        IF pgreact_api.execute(item.episode_id,item.worker_id,item.lease_token)
+           <> 'COMPLETED' THEN
+            RAISE EXCEPTION 'bounded claim execution did not complete';
+        END IF;
+    END LOOP;
+    IF (SELECT jsonb_agg(to_jsonb(a) ORDER BY id)
+        FROM claim_maintenance.actions a WHERE id IN (4,5))
+       IS DISTINCT FROM '[{"id":4,"deadline":"2000-01-04T00:00:00+00:00"},{"id":5,"deadline":"2000-01-05T00:00:00+00:00"}]'::jsonb
+       OR (SELECT count(*) FROM claim_maintenance.actions WHERE id IN (4,5)) <> 2 THEN
+        RAISE EXCEPTION 'bounded claim mutated wrong action population';
+    END IF;
+END
+$second_bound$;
 \else
 CREATE TABLE claim_maintenance.result AS SELECT jsonb_build_object('upgrade_only',true) AS vector;
 \endif

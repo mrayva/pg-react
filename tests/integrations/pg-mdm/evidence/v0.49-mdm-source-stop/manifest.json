@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-20",
+  "issue": "https://github.com/trickle-labs/pg-react/issues/11",
+  "entry_decision": "STOP",
+  "idle_case_delivered": false,
+  "stop_reason": "Direct authorized MDM-source deadline registration fails inside pgtrickle.create_stream_table; the successful technical-source idle proof does not qualify this source path.",
+  "failed_public_entrypoint": "pgreact_api.author_deadline_rule",
+  "failed_producer_call": "pgtrickle.create_stream_table",
+  "sqlstate": "42601",
+  "error": "syntax error at or near \")\"",
+  "source_definition": " SELECT policy_case.case_key,\n    policy_case.due_at AS deadline\n   FROM pgreact_mdm.intent_deployer_policy_cases_v1 policy_case\n     JOIN s1_audit.source selected_case USING (case_key);",
+  "registration_state_unchanged": true,
+  "public_core_vectors": {
+    "rules": [],
+    "work": [],
+    "attempts": []
+  },
+  "react_base_commit": "39efb26e5a1ff76bbbb645c3781a77eaefd848fb",
+  "tested_source_sha256": {
+    "integrations/pg-mdm/sql/comparison.sql": "865d48a66a36a7e663ca9de2fc2772d19cb03de157c9146a8f479e165d96cb1b",
+    "integrations/pg-mdm/sql/deadline-preview.sql": "d9c837597f45974704e939bcd14526adf1b2917b4845024caa22e29dc94c86d8",
+    "integrations/pg-mdm/sql/intent-worker.sql": "57971d63e6a78c7cc29a6c96a6a1610a8eb594328943ea9c218ee3857fc63b4c",
+    "integrations/pg-mdm/sql/policy-inputs.sql": "b0aa2f9b06f536fc257c0699d30e3ad518ef0d464adc809313081258e793980c",
+    "integrations/pg-mdm/sql/request-store.sql": "0ae7dc835716bd9a799b5d9031b9790fddf4235f1a2cb634fd4b5021ccd39a98",
+    "integrations/pg-mdm/sql/routing.sql": "67e044fe60bd5e6c9c40a83a97966c3dbe71a036f1f60d0803559dd38ca88b0c",
+    "integrations/pg-mdm/sql/typed-flow.sql": "b53646d0b62e31c2b834c0325acb8be9418ada4808017a2c8579ad45866c3bf8",
+    "pg_react.control": "684f15baa751a97717fe686496a9e809a4f04c73a38a9d21fe3e4ef49e84ff6a",
+    "sql/pg_react--0.46.1.sql": "b9927a8af5eca5334465ce7f313cc71b8f81d6ec6b0754c8842f1d6ca32df72f",
+    "src/identity.rs": "522d609495853348ff06379e53b421779d4e524ac4d970e310462ba89fd0271e",
+    "src/lib.rs": "0b8f6183fb21b4e612e6fae6e90248240b0049988b41d77c518ec0b17c0b45d9",
+    "src/lifecycle.rs": "0b5c16b35c093ba0345f322f9e180da8fc69a4396079821ccc50e4f6ffabe52a",
+    "src/managed.rs": "20c65190145e821c9c4f102c25f64a60d2fbfe355c36349504bf2addb8d4a998",
+    "src/oracle.rs": "b9b5dcafe6273341f75ad8670f14174b77e2deaa9dc51e78328d7d4e83ab565d",
+    "src/rewrite.rs": "58c59523be2a68e049c8538c365a4a71b79dcb7d29a21e698afa737c682c9370",
+    "tests/integrations/pg-mdm/time/audit.py": "a4316855ccb2813be1084b86d45a6f1aa11cb78971a5cc0276fcfb2c23c02485",
+    "tests/integrations/pg-mdm/time/boundaries.sql": "c93cb99e9fef9dd6d1d9165519cbe74d4436a58b8890d08d2b0d6b941d1e1f8a",
+    "tests/integrations/pg-mdm/time/compatibility.sql": "94e35dfa253ccbda0c8517e4c53a5221e123b10b1858c85a53d7c1f62f16f81d",
+    "tests/integrations/pg-mdm/time/idle-seed.sql": "432aaedc2060f558f51ec84b45b238b9c518e0c9fd77a9b11711527eeee012c6",
+    "tests/integrations/pg-mdm/time/idle.sql": "5fcee1ee73ae99eccc6995eb6db54f1042c1b4a1b4509d660f721f28df304a62",
+    "tests/integrations/pg-mdm/time/maintenance.sql": "a5814a3285c3d1f68cbacbd4ee9751f2f6dc4b9ffdc8679564dcf353e1600272",
+    "tests/integrations/pg-mdm/time/refresh-permission.sql": "5082ba133757bec8c9a586b29550b747cb0ef44d0e09f89f46d7e220951f7f2c",
+    "tests/integrations/pg-mdm/time/routing.sql": "bef4d43ff378680f762c6eb9c116b555859e604c57ebfc522e33ccbeaa38c4c7",
+    "tests/integrations/pg-mdm/time/runtime-gate.sql": "1358ae3e7f9c888fca1d57d5deb53704bb3df0fcbf6222bfac6a08e061c109ad"
+  },
+  "joint_artifact": {
+    "image": "pgreact:issue11-compatibility",
+    "image_id": "sha256:3cdd0ae0ac2b15f42cabdfc08c41b758360807148f6a5399f05b9bff4066453a",
+    "architecture": "arm64",
+    "labels": {
+      "pg_mdm.source_revision": "06471e647ee54a80973fb5ad6709830f9955dbff",
+      "pg_react.source_revision": "b0ad5c4c8d2a617120d680c2f4ecac80fbb742ea",
+      "pg_react.sql_base_revision": "35b340216f4767fccf2f0fe1abd409016b5f3525",
+      "pg_trickle.source_archive_sha256": "b8d4c59ca3770c305659255e09adde303b4d220228392c415ae363aa7be0a2da",
+      "pg_trickle.source_revision": "d8bb8eb5d45c5c9982e173e88914037433a1ee05"
+    },
+    "binary_source": "Unchanged libraries in the previously identified local joint artifact; candidate SQL from 39efb26. Only the test source and failure recorder changed.",
+    "fixtures_and_libraries_sha256": [
+      "a989f42898d91932f7b5168398d7386f04bc3f9bdd1ff6a40ffe6bd2a76a1d7e  /tests/e2e.sql",
+      "a7abbf8b9673f160dc1a5e0b635ace993d05e5a18d5df1af757bcfa9159a7fb1  /tests/e2e_policy.sql",
+      "b5b0bdde5f8ae627fbd7208507d010f637b73809d8935942152e8921b8c4899b  /usr/lib/postgresql/18/lib/pg_react.so",
+      "4ee461ab1a871f7744ab05df2f4ed67d55c78b521ba603bd650bab9c4eb4f677  /usr/lib/postgresql/18/lib/pg_mdm.so",
+      "d451cd19fddc498271a43ff5d5a8613496ab778f2151c333e81f8d4b75e63aa3  /usr/lib/postgresql/18/lib/pg_trickle.so"
+    ]
+  },
+  "installed_profile": {
+    "settings": {
+      "pg_trickle.enabled": "off",
+      "pg_trickle.cdc_mode": "trigger",
+      "transaction_isolation": "read committed",
+      "shared_preload_libraries": "pg_trickle,pg_react",
+      "default_transaction_isolation": "read committed",
+      "pg_trickle.differential_max_change_ratio": "1"
+    },
+    "extensions": {
+      "plpgsql": "1.0",
+      "pg_react": "0.46.1",
+      "pg_trickle": "0.108.3"
+    },
+    "postgresql": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "compatibility": {
+      "qualified": true,
+      "capabilities": {
+        "output_delta_consumer": {
+          "raw": {
+            "details": {
+              "phase": "v0.104_conformance",
+              "status": "stable",
+              "enabled": true,
+              "graph_dependency": "external_graph_refresh",
+              "qualification_api": "qualify_output_delta_recovery",
+              "consumer_recovery_version": 1,
+              "public_resnapshot_request": true,
+              "public_consumer_validation": true,
+              "typed_delta_encoding_version": 1
+            },
+            "enabled": true,
+            "capability": "output_delta_consumer",
+            "major_version": 1,
+            "minor_version": 1
+          },
+          "major": 1,
+          "minor": 1,
+          "status": "stable",
+          "enabled": true
+        },
+        "external_graph_refresh": {
+          "raw": {
+            "details": {
+              "phase": "v0.104_conformance",
+              "status": "stable",
+              "enabled": true,
+              "refresh_api": "refresh_graph_strict",
+              "source_boundary": "local_trigger_or_wal",
+              "max_graph_members": 1024,
+              "unavailable_reason": null,
+              "differential_features": [
+                "stable_row_identity_encoder_v3",
+                "custom_table_srf_out_columns",
+                "lateral_immutable_composite_function"
+              ]
+            },
+            "enabled": true,
+            "capability": "external_graph_refresh",
+            "major_version": 1,
+            "minor_version": 2
+          },
+          "major": 1,
+          "minor": 2,
+          "status": "stable",
+          "enabled": true
+        }
+      },
+      "cdc_expected": "trigger",
+      "delta_v1_used": false,
+      "graph_v1_used": false,
+      "coordination_mode": "LEGACY_EXPLICIT",
+      "extension_version": "0.108.3",
+      "package_qualified": true,
+      "scheduler_expected": "off",
+      "capabilities_qualified": true
+    }
+  },
+  "command": "rtk proxy env DOCKER_DEFAULT_PLATFORM=linux/arm64 python3 tests/integrations/pg-mdm/time/audit.py pgreact:issue11-compatibility OUTPUT",
+  "command_exit": 1,
+  "worker_start_phase": "not reached; registration failed before worker configuration/restart",
+  "checks": [
+    {
+      "name": "compatibility",
+      "result": "passed",
+      "seconds": 0.08858766598859802
+    },
+    {
+      "name": "fresh-adjacent-upgrade-compatibility",
+      "result": "passed"
+    },
+    {
+      "name": "refresh-permission",
+      "result": "passed",
+      "seconds": 0.12778041599085554
+    },
+    {
+      "name": "mdm-bootstrap",
+      "result": "passed",
+      "seconds": 105.31001616700087
+    },
+    {
+      "name": "mdm-policy-fixtures",
+      "result": "passed",
+      "seconds": 3.6067940829962026
+    },
+    {
+      "name": "idle-seed",
+      "result": "passed",
+      "seconds": 0.06481379200704396
+    },
+    {
+      "name": "v0.47",
+      "result": "passed",
+      "seconds": 0.18081891699694097
+    },
+    {
+      "name": "v0.47-typed",
+      "result": "passed",
+      "seconds": 0.07680124999023974
+    },
+    {
+      "name": "v0.48-codec",
+      "result": "passed",
+      "seconds": 0.11298045801231638
+    },
+    {
+      "name": "v0.47-live-setup",
+      "result": "passed",
+      "seconds": 0.5482501249935012
+    },
+    {
+      "name": "v0.47-live",
+      "result": "passed",
+      "seconds": 0.3721365829987917
+    },
+    {
+      "name": "v0.48-codec",
+      "result": "passed",
+      "seconds": 0.0888622919737827
+    },
+    {
+      "name": "v0.48-live",
+      "result": "passed",
+      "seconds": 4.020305959013058
+    },
+    {
+      "name": "v0.48-security",
+      "result": "passed",
+      "seconds": 0.13406520799617283
+    },
+    {
+      "name": "missing-mdm-admission",
+      "result": "passed"
+    },
+    {
+      "name": "sample-boundaries",
+      "result": "passed",
+      "seconds": 0.16791300001204945
+    },
+    {
+      "name": "idle-setup",
+      "result": "failed"
+    }
+  ],
+  "assertions": "The complete registration_before and registration_after vectors in observations.json.gz are equal, including every public MDM case/receipt and business/technical source row; core rule/work/attempt vectors are exactly empty.",
+  "prior_technical_source_ci": {
+    "source_commit": "39efb26e5a1ff76bbbb645c3781a77eaefd848fb",
+    "scope": "These passing runs used the earlier technical deadline source. They do not qualify the direct authorized MDM-source query above.",
+    "01080": {
+      "url": "https://github.com/trickle-labs/pg-react/actions/runs/39375263662",
+      "image_id": "sha256:3b6fbb3ebe09e178018413924b540543cd0f28f58f3c14f2f24e7bf6f102d7cc",
+      "artifact_id": 12243164380,
+      "artifact_zip_sha256": "052b1317fb2a31621485f78630b9649f7e882938c532153663eb8d8f516eb072"
+    },
+    "01083": {
+      "url": "https://github.com/trickle-labs/pg-react/actions/runs/39375268080",
+      "image_id": "sha256:0ee6a82deae4e148802e84564c368d96854d6c907e57ba955ddce27eb685d52c",
+      "artifact_id": 12243970452,
+      "artifact_zip_sha256": "50914beac447d0d603fdb06fcf40f5c4a5e5919b13d813b0d9d257ef274caafe"
+    },
+    "pr_core": "https://github.com/trickle-labs/pg-react/actions/runs/39375268119",
+    "adapter": "https://github.com/trickle-labs/pg-react/actions/runs/39375268242"
+  },
+  "current_ci": "The updated direct-source fixture remains fatal in the pinned-producer CI job; no expected-rejection acceptance is substituted. New-head CI must be inspected separately.",
+  "conditional_work_not_performed": [
+    "typed managed temporal registration implementation",
+    "bounded catch-up",
+    "deduplication convergence",
+    "diagnostics/recovery/concurrency acceptance"
+  ],
+  "boundaries": [
+    "PR 14 remains draft",
+    "issue 11 remains open",
+    "production activation remains disabled",
+    "no claim of React 12 release qualification or pg-trickle 1168 closure",
+    "no producer patch, permission expansion, ownership transfer or source-copy workaround"
+  ],
+  "limitation": "The exact SQL-generation cause inside the producer has not been isolated. The view definition, public call, verbose SQLSTATE/context and source/artifact identities reproduce the observed failure.",
+  "artifacts": [
+    {
+      "path": "compatibility.log.gz",
+      "sha256": "162050a359b34e8c0f539538721260fe95b7213ea6ad364bb746fb170042ebd3"
+    },
+    {
+      "path": "idle-seed.log.gz",
+      "sha256": "709c56e81327c88ff1a92fb71bea4111fd5845aff229d9a61c401908656212cf"
+    },
+    {
+      "path": "idle-setup.log.gz",
+      "sha256": "a9d47ecb4d7965f8fd530d261931089e2087ab4b890915610d551562c09bee26"
+    },
+    {
+      "path": "mdm-bootstrap.log.gz",
+      "sha256": "5e5b7c63343217a93aee4e7be99c6e947f3c312480d32b5e0cfa36d626226143"
+    },
+    {
+      "path": "mdm-policy-fixtures.log.gz",
+      "sha256": "ceb501d9a1c656d221a62eae45ea65ee0e160723f3415e0a24003658f265d1c2"
+    },
+    {
+      "path": "observations.json.gz",
+      "sha256": "751e443c76db8a3f0dfd1a976fcb157febddd88f1ffdb2cee01f07fa4935e3dd"
+    },
+    {
+      "path": "refresh-permission.log.gz",
+      "sha256": "a2662c58c0ed1550d791064dd4ce6e04fdc28c185518f3a8ef31f8c0c37a849c"
+    },
+    {
+      "path": "run.log.gz",
+      "sha256": "9e398735dfd76d37cf51596b2f5c2728a9388dde49b5c8a7291dfa73bba155db"
+    },
+    {
+      "path": "sample-boundaries.log.gz",
+      "sha256": "45345412b8affff6ebb00eb2d0008136f8572082c49d505153f83a82ca0bcac7"
+    },
+    {
+      "path": "v0.47-live-setup.log.gz",
+      "sha256": "885fa99ef7fe55992fe33819e482ad2b760f0f4022648c40666b0c756361d6fb"
+    },
+    {
+      "path": "v0.47-live.log.gz",
+      "sha256": "4cd5f0a45f9f54ac1eda02bc8b382daf528c25592deafa85a559ab56b2f3d9de"
+    },
+    {
+      "path": "v0.47-typed.log.gz",
+      "sha256": "b801aad4a87cede8d031cbcb2278f1127663af41f3b391eded1be468eda808a2"
+    },
+    {
+      "path": "v0.47.log.gz",
+      "sha256": "2a9791d0a6e74dbe1f04cb0c13e01b37af6c47726061b2af4658d23093f87b73"
+    },
+    {
+      "path": "v0.48-codec.log.gz",
+      "sha256": "4886729b50eebc88415466fbad7fcafb9787134ff1edfdd4a6b2646939ae2293"
+    },
+    {
+      "path": "v0.48-live.log.gz",
+      "sha256": "1a3aad2144c4a87172f060a5b1a0505a51431ec1395f899da90c5269e69409ea"
+    },
+    {
+      "path": "v0.48-security.log.gz",
+      "sha256": "426078cbd655a5498693a9cc5180137b218c1fdb6e3881abf71c8fdc5f177042"
+    }
+  ]
+}

@@ -45,6 +45,8 @@ jobs:
           exit "$status"
       - name: Current documentation audit
         run: bash tests/current-docs.sh
+      - name: Exact producer admission regression
+        run: python3 tests/integrations/pg-mdm/time/audit.py "${{ inputs.image }}" v0.46.0-evidence/producer-admission --compatibility
       - name: Workflow syntax audit
         run: bash tests/workflow-syntax.sh
       - name: API inventory audit

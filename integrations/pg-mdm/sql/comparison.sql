@@ -90,9 +90,9 @@ BEGIN
     observed_count := COALESCE(cardinality(selected_keys), 0);
     EXECUTE $query$
         WITH current_routes AS (
-            SELECT * FROM pgreact_mdm.route_cases($1, $2)
+            SELECT * FROM pgreact_mdm.route_cases($1, $2, NULL::text, $4)
         ), proposed_routes AS (
-            SELECT * FROM pgreact_mdm.route_cases($1, $3)
+            SELECT * FROM pgreact_mdm.route_cases($1, $3, NULL::text, $4)
         ), current_deadlines AS (
             SELECT * FROM pgreact_mdm.deadline_preview($1, $2, $4)
         ), proposed_deadlines AS (

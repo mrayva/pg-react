@@ -1,4 +1,4 @@
--- pg_trickle 0.108.0 compatibility boundary.
+-- Exact pg_trickle 0.108.0 and MDM-pinned 0.108.3 compatibility profiles.
 --
 -- Assumption: integration_capabilities() is a public zero-argument set-returning
 -- function whose rows expose capability/name, major(_version), minor(_version),
@@ -95,7 +95,7 @@ BEGIN
     capabilities := pgreact_internal.pgtrickle_capability_report(rows);
     graph := capabilities -> 'external_graph_refresh';
     delta := capabilities -> 'output_delta_consumer';
-    package_qualified := installed_version = '0.108.0'
+    package_qualified := installed_version IN ('0.108.0', '0.108.3')
         AND current_setting('transaction_isolation') = 'read committed'
         AND COALESCE(current_setting('pg_trickle.enabled', true), '') = 'off'
         AND COALESCE(current_setting('pg_trickle.cdc_mode', true), '') = 'trigger'
@@ -139,13 +139,13 @@ DECLARE status jsonb := pgreact_internal.pgtrickle_integration_status();
 BEGIN
     IF NOT COALESCE((status ->> 'qualified')::boolean, false) THEN
         RAISE EXCEPTION 'pg-react pg_trickle runtime is unsupported: %', status
-            USING HINT = 'Use pg_trickle 0.108.0 with scheduler off, trigger CDC, and stable enabled Graph V1.2.';
+            USING HINT = 'Use qualified pg_trickle 0.108.0 or 0.108.3 with scheduler off, trigger CDC, differential ratio 1.0, READ COMMITTED, and stable enabled Graph V1.2.';
     END IF;
 END
 $pgtrickle$;
 
 COMMENT ON FUNCTION pgreact_internal.pgtrickle_integration_status() IS
-    'Public pg_trickle 0.108.0 capability report; stable enabled Graph V1.2 is admitted without changing React coordination.';
+    'Public pg_trickle 0.108.0/0.108.3 capability report; stable enabled Graph V1.2 is admitted without changing React coordination.';
 
 CREATE OR REPLACE FUNCTION pgreact_internal.assert_m0_compatibility()
 RETURNS void
@@ -179,22 +179,22 @@ BEGIN
             'code', 'PGT_CAPABILITY_DISCOVERY_FAILED', 'severity', 'ERROR',
             'object_identity', 'pg_trickle',
             'message', 'pg-react could not read pg_trickle.integration_capabilities()',
-            'hint', 'Install the qualified pg_trickle 0.108.0 release and verify its public capability API.',
+            'hint', 'Install qualified pg_trickle 0.108.0 or 0.108.3 and verify its public capability API.',
             'details', jsonb_build_object('sqlstate', SQLSTATE, 'error', SQLERRM));
         RETURN;
     END;
 
     graph := status -> 'capabilities' -> 'external_graph_refresh';
     delta := status -> 'capabilities' -> 'output_delta_consumer';
-    IF status ->> 'extension_version' IS DISTINCT FROM '0.108.0' THEN
+    IF (status ->> 'extension_version') NOT IN ('0.108.0', '0.108.3') THEN
         RETURN NEXT jsonb_build_object(
             'code', 'PGT_RUNTIME_UNSUPPORTED', 'severity', 'ERROR',
             'object_identity', 'pg_trickle',
-            'message', format('installed pg_trickle version is %s; pg-react 0.46.0 requires 0.108.0',
+            'message', format('installed pg_trickle version is %s; pg-react requires qualified 0.108.0 or 0.108.3',
                               COALESCE(status ->> 'extension_version', '<missing>')),
-            'hint', 'Upgrade pg_trickle to 0.108.0 before resuming pg-react coordination.',
+            'hint', 'Use qualified pg_trickle 0.108.0 or 0.108.3 before resuming pg-react coordination.',
             'installed_version', status ->> 'extension_version',
-            'expected_version', '0.108.0',
+            'expected_version', '0.108.0 or 0.108.3',
             'coordination_mode', status ->> 'coordination_mode');
     END IF;
     IF COALESCE(current_setting('pg_trickle.enabled', true), '') <> 'off' THEN
@@ -225,7 +225,7 @@ BEGIN
             'code', 'PGT_CAPABILITY_UNSUPPORTED', 'severity', 'ERROR',
             'object_identity', 'external_graph_refresh',
             'message', 'the discovered stable Graph V1.2 capability is missing or unsupported',
-            'hint', 'Use pg_trickle 0.108.0 with stable external_graph_refresh 1.2.',
+            'hint', 'Use qualified pg_trickle 0.108.0 or 0.108.3 with stable external_graph_refresh 1.2.',
             'capability', 'external_graph_refresh',
             'major', graph ->> 'major', 'minor', graph ->> 'minor',
             'enabled', graph -> 'enabled', 'status', graph ->> 'status');
@@ -255,7 +255,7 @@ BEGIN
             'code', 'PGT_CAPABILITY_UNSUPPORTED', 'severity', 'ERROR',
             'object_identity', 'output_delta_consumer',
             'message', 'the discovered Delta V1.1 capability is unsupported',
-            'hint', 'Use pg_trickle 0.108.0 with stable output_delta_consumer 1.1.',
+            'hint', 'Use qualified pg_trickle 0.108.0 or 0.108.3 with stable output_delta_consumer 1.1.',
             'capability', 'output_delta_consumer',
             'major', delta ->> 'major', 'minor', delta ->> 'minor',
             'enabled', delta -> 'enabled', 'status', delta ->> 'status');
@@ -365,6 +365,7 @@ AS $pgtrickle$
 DECLARE worker text := format('pg-react-managed/%s/%s', current_database(), process_pid);
     pending bigint;
     status jsonb;
+    adapter_ready boolean;
 BEGIN
     SELECT count(*) INTO pending
     FROM pgreact_internal.agenda job
@@ -391,6 +392,33 @@ BEGIN
         RETURN jsonb_build_object(
             'state', 'blocked', 'pending_jobs', pending, 'processed_jobs', 0,
             'compatibility', status);
+    END IF;
+    IF to_regclass('pgreact_mdm.policy_intent_bindings') IS NOT NULL THEN
+        IF to_regprocedure('pgreact_mdm.policy_runtime_ready()') IS NULL THEN
+            EXECUTE 'SELECT NOT EXISTS (SELECT 1 FROM pgreact_mdm.policy_intent_bindings WHERE enabled)'
+                INTO adapter_ready;
+        ELSE
+            EXECUTE 'SELECT pgreact_mdm.policy_runtime_ready()' INTO adapter_ready;
+        END IF;
+        IF NOT COALESCE(adapter_ready, false) THEN
+            INSERT INTO pgreact_internal.managed_processes (
+                database_oid, database_name, backend_pid, state, protocol, pending_jobs, detail)
+            VALUES ((SELECT oid FROM pg_database WHERE datname = current_database()),
+                    current_database(), process_pid, 'error', 2, pending,
+                    'MDM activation required')
+            ON CONFLICT (database_oid) DO UPDATE
+            SET backend_pid = EXCLUDED.backend_pid, state = 'error', protocol = EXCLUDED.protocol,
+                pending_jobs = EXCLUDED.pending_jobs, heartbeat_at = clock_timestamp(),
+                detail = EXCLUDED.detail;
+            RETURN jsonb_build_object('state', 'blocked', 'pending_jobs', pending,
+                                      'processed_jobs', 0, 'reason', 'MDM activation required');
+        END IF;
+    END IF;
+    IF NOT pg_is_in_recovery()
+       AND to_regprocedure('pgreact_mdm.sync_intent_case_identities()') IS NOT NULL THEN
+        -- Enroll MDM-owned occurrences before the existing refresh/time frontier.
+        PERFORM pg_catalog.pg_advisory_xact_lock(5788046901200000);
+        EXECUTE 'SELECT pgreact_mdm.sync_intent_case_identities()';
     END IF;
     RETURN pgreact_internal.managed_cycle_m44(process_pid);
 END
